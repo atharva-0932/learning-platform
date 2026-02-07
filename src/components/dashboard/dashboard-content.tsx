@@ -101,8 +101,9 @@ const recentActivity = [
   },
 ];
 
-export function DashboardContent() {
+export function DashboardContent({ user }: { user: any }) {
   const [mounted, setMounted] = useState(false);
+  const userName = user?.email?.split('@')[0] || "User";
 
   useEffect(() => {
     setMounted(true);
@@ -112,12 +113,11 @@ export function DashboardContent() {
     <div className="p-6 lg:p-8 space-y-8">
       {/* Welcome section */}
       <div
-        className={`transition-all duration-500 ${
-          mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-        }`}
+        className={`transition-all duration-500 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+          }`}
       >
         <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">
-          Welcome back, <span className="text-primary">John</span>
+          Welcome back, <span className="text-primary">{userName}</span>
         </h1>
         <p className="text-muted-foreground">
           {"Let's continue building your dream career."}
@@ -126,9 +126,8 @@ export function DashboardContent() {
 
       {/* Stats grid */}
       <div
-        className={`grid grid-cols-2 lg:grid-cols-4 gap-4 transition-all duration-500 delay-100 ${
-          mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-        }`}
+        className={`grid grid-cols-2 lg:grid-cols-4 gap-4 transition-all duration-500 delay-100 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+          }`}
       >
         {stats.map((stat) => {
           const Icon = stat.icon;
@@ -152,9 +151,8 @@ export function DashboardContent() {
 
       {/* Quick actions */}
       <div
-        className={`transition-all duration-500 delay-200 ${
-          mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-        }`}
+        className={`transition-all duration-500 delay-200 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+          }`}
       >
         <h2 className="text-lg font-semibold text-foreground mb-4">
           Quick Actions
@@ -188,9 +186,8 @@ export function DashboardContent() {
 
       {/* Bottom section */}
       <div
-        className={`grid grid-cols-1 lg:grid-cols-2 gap-6 transition-all duration-500 delay-300 ${
-          mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-        }`}
+        className={`grid grid-cols-1 lg:grid-cols-2 gap-6 transition-all duration-500 delay-300 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+          }`}
       >
         {/* Recent activity */}
         <div className="bg-card border border-border rounded-2xl p-6">

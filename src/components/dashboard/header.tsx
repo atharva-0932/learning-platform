@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { logout } from "@/app/auth/actions";
 
 export function DashboardHeader() {
   return (
@@ -72,9 +73,11 @@ export function DashboardHeader() {
               Billing
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border" />
-            <DropdownMenuItem className="text-destructive hover:bg-destructive/10 cursor-pointer">
-              Log out
-            </DropdownMenuItem>
+            <form action={logout} className="w-full">
+              <button type="submit" className="w-full relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-destructive/10 text-destructive data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                Log out
+              </button>
+            </form>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

@@ -3,10 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Menu, X } from "lucide-react";
+import { Sparkles, Menu, X, LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { logout } from "@/app/auth/actions";
 
-export function Navbar() {
+export function Navbar({ user }: { user: any }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -26,19 +27,39 @@ export function Navbar() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-2">
             <ThemeToggle />
-            <Link href="/dashboard">
-              <Button
-                variant="ghost"
-                className="text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              >
-                Login
-              </Button>
-            </Link>
-            <Link href="/dashboard">
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-6">
-                Sign Up
-              </Button>
-            </Link>
+            {user ? (
+              <div className="flex items-center gap-2">
+                <Link href="/dashboard">
+                  <Button
+                    variant="ghost"
+                    className="text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    Dashboard
+                  </Button>
+                </Link>
+                <form action={logout}>
+                  <Button variant="outline" className="font-medium px-6 flex items-center gap-2">
+                    <LogOut className="w-4 h-4" /> Sign Out
+                  </Button>
+                </form>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Link href="/login">
+                  <Button
+                    variant="ghost"
+                    className="text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    Login
+                  </Button>
+                </Link>
+                <Link href="/signup">
+                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-6">
+                    Sign Up
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -64,19 +85,39 @@ export function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden bg-background border-t border-border">
           <div className="px-4 py-4 space-y-3">
-            <Link href="/dashboard" className="block">
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
-              >
-                Login
-              </Button>
-            </Link>
-            <Link href="/dashboard" className="block">
-              <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium">
-                Sign Up
-              </Button>
-            </Link>
+            {user ? (
+              <div className="space-y-3 pt-2 border-t border-border">
+                <Link href="/dashboard" className="block w-full">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
+                  >
+                    Dashboard
+                  </Button>
+                </Link>
+                <form action={logout} className="w-full">
+                  <Button variant="outline" className="w-full justify-start font-medium flex items-center gap-2">
+                    <LogOut className="w-4 h-4" /> Sign Out
+                  </Button>
+                </form>
+              </div>
+            ) : (
+              <div className="space-y-3 pt-2 border-t border-border">
+                <Link href="/login" className="block w-full">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
+                  >
+                    Login
+                  </Button>
+                </Link>
+                <Link href="/signup" className="block w-full">
+                  <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium">
+                    Sign Up
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       )}

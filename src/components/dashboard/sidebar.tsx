@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { logout } from "@/app/auth/actions";
 
 const navItems = [
   {
@@ -141,13 +142,12 @@ export function DashboardSidebar() {
           );
         })}
 
-        <Link
-          href="/"
-          className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-200"
-        >
-          <LogOut className="w-5 h-5 shrink-0" />
-          {!collapsed && <span className="font-medium">Log Out</span>}
-        </Link>
+        <form action={logout}>
+          <button className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-200">
+            <LogOut className="w-5 h-5 shrink-0" />
+            {!collapsed && <span className="font-medium">Log Out</span>}
+          </button>
+        </form>
 
         {/* Collapse button */}
         <Button
