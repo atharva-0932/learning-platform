@@ -14,7 +14,8 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle";
 import { logout } from "@/app/auth/actions";
 
-export function DashboardHeader() {
+export function DashboardHeader({ user }: { user: any }) {
+  const userName = user?.email?.split('@')[0] || "User";
   return (
     <header className="h-16 bg-background border-b border-border flex items-center justify-between px-6">
       {/* Search */}
@@ -53,7 +54,7 @@ export function DashboardHeader() {
                 <User className="w-4 h-4 text-primary-foreground" />
               </div>
               <div className="hidden sm:block text-left">
-                <p className="text-sm font-medium text-foreground">John Doe</p>
+                <p className="text-sm font-medium text-foreground capitalize">{userName}</p>
                 <p className="text-xs text-muted-foreground">Pro Plan</p>
               </div>
             </Button>

@@ -35,3 +35,23 @@ export async function syncProfile(userId: string, profile: any, skills: string[]
 
     return response.json();
 }
+export async function getCareerAssessment(userId: string, targetRole: string, resumeText: string) {
+    const response = await fetch("/api/career-assessment", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            user_id: userId,
+            target_role: targetRole,
+            resume_text: resumeText,
+        }),
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to get career assessment");
+    }
+
+    return response.json();
+}

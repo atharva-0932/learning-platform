@@ -51,7 +51,9 @@ def parse_resume_pdf(file_buffer):
         if content.endswith("```"):
             content = content[:-3]
             
-        return json.loads(content.strip())
+        result = json.loads(content.strip())
+        result["raw_text"] = text
+        return result
 
     except Exception as e:
         print(f"Error parsing resume: {e}")

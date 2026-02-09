@@ -7,10 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { parseResume, syncProfile } from "@/lib/api";
+import { parseResume, syncProfile, getCareerAssessment } from "@/lib/api";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { ProfileDataView } from "@/components/dashboard/profile-data-view";
 
 interface ResumeUploadFormProps {
     userId: string;
@@ -68,10 +67,14 @@ export function ResumeUploadForm({ userId, onSuccess }: ResumeUploadFormProps) {
                 await syncProfile(userId, {
                     bio: parsedData.bio,
                     education: parsedData.education,
-                    goals: { target_role: role }
+                    goals: { target_role: role },
+                    resume_text: parsedData.raw_text
                 }, parsedData.skills || []);
 
-                // 3. Success State
+                // 3. Trigger Career Assessment
+                await getCareerAssessment(userId, role, parsedData.raw_text);
+
+                // 4. Success State
                 setParsedStats({
                     skills: parsedData.skills?.length || 0,
                     education: parsedData.education?.length || 0,
@@ -79,8 +82,8 @@ export function ResumeUploadForm({ userId, onSuccess }: ResumeUploadFormProps) {
                     fullData: parsedData
                 });
                 setIsSuccess(true);
-                toast.success("Profile Synced", {
-                    description: `Successfully analyzed resume and updated profile for ${role}.`,
+                toast.success("Profile & Career Assessment Ready", {
+                    description: `Successfully analyzed resume and generated career insights for ${role}.`,
                 });
 
                 router.refresh();

@@ -10,6 +10,20 @@ export default async function CareerPage() {
         redirect("/login");
     }
 
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('*, goals')
+        .eq('user_id', user.id)
+        .single();
+
+    // Fetch user skills for the fallback assessment
+    const { data: userSkillsData } = await supabase
+        .from('user_skills')
+        .select('skills(name)')
+        .eq('user_id', user.id);
+
+    const skills = (userSkillsData || []).map((item: any) => item.skills?.name).filter(Boolean) as string[];
+
     const { data: assessment } = await supabase
         .from('user_assessments')
         .select('*')
@@ -18,5 +32,10 @@ export default async function CareerPage() {
         .limit(1)
         .single();
 
-    return <CareerContent user={user} assessment={assessment} />;
+    const enhancedProfile = profile ? {
+        ...profile,
+        skills
+    } : null;
+
+    return <CareerContent user={user} assessment={assessment} profile={enhancedProfile} />;
 }
