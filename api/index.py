@@ -40,6 +40,10 @@ def sync_profile():
             "full_name": profile_data.get('full_name'),
             "bio": profile_data.get('bio'),
             "education": profile_data.get('education', []),
+            "experience": profile_data.get('experience', []),
+            "projects": profile_data.get('projects', []),
+            "achievements": profile_data.get('achievements', []),
+            "certifications": profile_data.get('certifications', []),
             "goals": profile_data.get('goals', []),
             "resume_text": profile_data.get('resume_text'),
             "updated_at": "now()"
@@ -165,7 +169,10 @@ def career_assessment():
         res = supabase.table('user_assessments').insert(upsert_data).execute()
 
         return jsonify(assessment_data), 200
-
+    except json.JSONDecodeError as je:
+        print(f"JSON Decode Error: {je}")
+        print(f"Raw content from Gemini: {content}")
+        return jsonify({"error": "Failed to parse AI response as JSON", "details": str(je), "raw": content}), 500
     except Exception as e:
         error_msg = str(e)
         print(f"Assessment error: {error_msg}")
@@ -177,7 +184,7 @@ def career_assessment():
                 "type": "rate_limit"
             }), 429
             
-        return jsonify({"error": error_msg}), 500
+        return jsonify({"error": f"Internal Server Error: {error_msg}"}), 500
 
 @app.route('/api/parse-resume', methods=['POST'])
 def parse_resume():

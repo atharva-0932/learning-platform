@@ -67,6 +67,7 @@ export function ResumeUploadForm({ userId, onSuccess }: ResumeUploadFormProps) {
                 await syncProfile(userId, {
                     bio: parsedData.bio,
                     education: parsedData.education,
+                    experience: parsedData.experience,
                     goals: { target_role: role },
                     resume_text: parsedData.raw_text
                 }, parsedData.skills || []);
