@@ -56,34 +56,25 @@ export default function ResumePage() {
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-8 h-full">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-              <FileText className="w-6 h-6" />
-            </div>
-            <h1 className="text-3xl lg:text-4xl font-extrabold text-foreground tracking-tight">
-              Resume Studio
-            </h1>
+    <div className="flex flex-col h-screen overflow-hidden bg-background">
+      {/* Mini Studio Header */}
+      <header className="flex items-center justify-between px-6 py-3 border-b bg-background/80 backdrop-blur-md z-10">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+            <FileText className="w-4 h-4" />
           </div>
-          <p className="text-muted-foreground text-lg max-w-2xl">
-            Polish your professional narrative with our dual-pane AI-powered resume builder.
-          </p>
+          <h1 className="text-xl font-bold tracking-tight">Resume Studio</h1>
         </div>
-      </div>
+        <div className="flex items-center gap-4 text-sm text-muted-foreground italic">
+          <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+          AI-Powered Professional Design
+        </div>
+      </header>
 
-      <Tabs defaultValue="builder" className="w-full">
-        <TabsList className="bg-muted/50 p-1 rounded-xl mb-6">
-          <TabsTrigger value="builder" className="rounded-lg px-6 font-semibold">
-            <Sparkles className="w-4 h-4 mr-2" /> Resume Builder
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="builder" className="mt-0 h-[calc(100vh-280px)]">
-          <ResumeBuilder user={user} initialProfile={profile} />
-        </TabsContent>
-      </Tabs>
+      {/* Main Studio Area */}
+      <main className="flex-1 overflow-hidden">
+        <ResumeBuilder user={user} initialProfile={profile} />
+      </main>
     </div>
   );
 }
