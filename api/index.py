@@ -3,6 +3,8 @@ from supabase import create_client, Client
 import os
 from dotenv import load_dotenv
 from api.utils.resume_parser import parse_resume_pdf
+from api.utils.gemini import call_gemini_with_retry
+from api.utils.learning_path import generate_roadmap, find_resources, generate_capstone_project
 from google import genai
 import io
 import json
@@ -19,6 +21,112 @@ if not url or not key:
 
 # Initialize Supabase client
 supabase: Client = create_client(url, key) if url and key else None
+
+@app.route('/api/learning-path', methods=['GET'])
+def get_learning_path():
+    if not supabase:
+        return jsonify({"error": "Supabase not initialized"}), 500
+    
+    user_id = request.args.get('user_id')
+    print(f"Fetching learning path for user: {user_id}")
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+
+    try:
+        # 1. Fetch latest assessment to get target_role and missing_skills
+        res = supabase.table('user_assessments')\
+            .select('*')\
+            .eq('user_id', user_id)\
+            .order('created_at', desc=True)\
+            .limit(1)\
+            .execute()
+        
+        if not res.data:
+            print("No career assessment found.")
+            return jsonify({"error": "No career assessment found. Please upload a resume first."}), 404
+        
+        assessment = res.data[0]
+        feedback = assessment.get('feedback') or {}
+        target_role = assessment.get('target_role')
+        keywords = feedback.get('keywords') or {}
+        missing_skills = keywords.get('missing', [])
+        
+        print(f"Target Role: {target_role}, Missing Skills: {missing_skills}")
+
+        # 2. Fetch user's learning progress
+        progress_res = supabase.table('user_learning_progress')\
+            .select('milestone_title, completed')\
+            .eq('user_id', user_id)\
+            .execute()
+        
+        completed_milestones = [p['milestone_title'] for p in (progress_res.data or []) if p.get('completed')]
+        print(f"Completed milestones: {len(completed_milestones)}")
+
+        # 3. Generate Roadmap
+        print("Generating roadmap...")
+        roadmap = generate_roadmap(target_role, missing_skills)
+        if not isinstance(roadmap, list):
+            print(f"Warning: roadmap is not a list: {roadmap}")
+            roadmap = []
+        
+        # Enrich roadmap with completion status
+        for milestone in roadmap:
+            if isinstance(milestone, dict):
+                milestone['completed'] = milestone.get('title') in completed_milestones
+
+        # 4. Find Resources for each missing skill
+        print("Finding resources...")
+        resources = {skill: find_resources(skill) for skill in missing_skills}
+
+        # 5. Generate Capstone Project
+        print("Generating capstone...")
+        capstone = generate_capstone_project(missing_skills)
+
+        print("Learning path generated successfully.")
+        return jsonify({
+            "target_role": target_role,
+            "missing_skills": missing_skills,
+            "roadmap": roadmap,
+            "resources": resources,
+            "capstone": capstone
+        }), 200
+
+    except Exception as e:
+        print(f"CRITICAL Error in get_learning_path: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/progress', methods=['POST'])
+def update_progress():
+    if not supabase:
+        return jsonify({"error": "Supabase not initialized"}), 500
+    
+    data = request.json
+    user_id = data.get('user_id')
+    milestone_title = data.get('milestone_title')
+    completed = data.get('completed', True)
+
+    if not user_id or not milestone_title:
+        return jsonify({"error": "user_id and milestone_title are required"}), 400
+
+    try:
+        if completed:
+            res = supabase.table('user_learning_progress').upsert({
+                "user_id": user_id,
+                "milestone_title": milestone_title,
+                "completed": True
+            }).execute()
+        else:
+            res = supabase.table('user_learning_progress')\
+                .delete()\
+                .eq('user_id', user_id)\
+                .eq('milestone_title', milestone_title)\
+                .execute()
+        
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/sync-profile', methods=['POST'])
 def sync_profile():
@@ -109,10 +217,7 @@ def career_assessment():
     if not api_key:
         return jsonify({"error": "GEMINI_API_KEY not configured"}), 500
     
-    try:
-        client = genai.Client(api_key=api_key)
-
-        prompt = f"""
+    prompt = f"""
         Analyze the match between this resume and the target role.
         Target Role: {target_role}
         Resume Text: {resume_text}
@@ -141,11 +246,12 @@ def career_assessment():
         Return ONLY the JSON object, no markdown formatting.
         """
 
-        response = client.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=prompt
-        )
-        content = response.text
+    try:
+        content = call_gemini_with_retry(prompt)
+        
+        # Handle potential error return from call_gemini_with_retry
+        if isinstance(content, dict) and "error" in content:
+            return jsonify(content), 500
         
         # Clean up potential markdown code blocks
         if content.startswith("```json"):

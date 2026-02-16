@@ -65,6 +65,10 @@ export function ResumeUploadForm({ userId, onSuccess }: ResumeUploadFormProps) {
 
                 // 2. Sync to Database
                 await syncProfile(userId, {
+                    full_name: parsedData.full_name,
+                    email: parsedData.email,
+                    country: parsedData.country,
+                    linkedin_url: parsedData.linkedin_url,
                     bio: parsedData.bio,
                     education: parsedData.education,
                     experience: parsedData.experience,

@@ -17,17 +17,13 @@ def parse_resume_pdf(file_buffer):
         if not text:
             return {"error": "No text content found in PDF"}
 
-        # Configure Gemini
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            return {"error": "GEMINI_API_KEY not configured"}
-        
-        # Use new google.genai Client API
-        client = genai.Client(api_key=api_key)
-
         prompt = f"""
         You are an AI assistant that extracts structured data from resumes.
         Extract the following information from the text below and return it as a valid JSON object:
+        - full_name: the person's full name (string)
+        - email: email address (string)
+        - country: city and/or country (string)
+        - linkedin_url: LinkedIn profile URL (string)
         - skills: list of strings (e.g., ["Python", "React", "Project Management"])
         - education: list of objects with fields "degree", "institution", "year"
         - experience: list of objects with fields "role", "company", "duration", "description"
@@ -39,11 +35,12 @@ def parse_resume_pdf(file_buffer):
         Return ONLY the JSON object, no markdown formatting.
         """
 
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt
-        )
-        content = response.text
+        from api.utils.gemini import call_gemini_with_retry
+        content = call_gemini_with_retry(prompt)
+        
+        # Handle potential error return from call_gemini_with_retry
+        if isinstance(content, dict) and "error" in content:
+            return content
         
         # Clean up potential markdown code blocks
         if content.startswith("```json"):

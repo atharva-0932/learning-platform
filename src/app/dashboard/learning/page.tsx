@@ -1,614 +1,459 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import {
-  GraduationCap,
-  Play,
-  Clock,
-  Target,
-  ChevronDown,
-  ExternalLink,
-  Star,
-  Zap,
-  CheckCircle2,
-  Circle,
+  Loader2,
   BookOpen,
+  Target,
+  CheckCircle,
+  ExternalLink,
+  Trophy,
+  Lightbulb,
   TrendingUp,
+  BrainCircuit,
+  Zap,
+  Layout
 } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { toast } from "sonner";
 
-interface Course {
+interface Milestone {
   title: string;
-  platform: "Coursera" | "Udemy" | "YouTube";
-  price: string;
-  duration: string;
-  rating: number;
+  description: string;
+  difficulty: "Beginner" | "Intermediate" | "Advanced";
+  completed: boolean;
+}
+
+interface Resource {
+  title: string;
   url: string;
 }
 
-interface SkillNode {
-  id: string;
-  skill: string;
-  category: string;
-  priority: "Critical" | "Important" | "Nice to Have";
-  status: "completed" | "in-progress" | "locked";
-  description: string;
-  courses: Course[];
+interface LearningPath {
+  target_role: string;
+  missing_skills: string[];
+  roadmap: Milestone[];
+  resources: Record<string, Resource[]>;
+  capstone: {
+    title: string;
+    description: string;
+    technologies: string[];
+    learning_outcomes: string[];
+  };
 }
 
-const skillRoadmap: SkillNode[] = [
-  {
-    id: "1",
-    skill: "Advanced TypeScript",
-    category: "Programming",
-    priority: "Critical",
-    status: "completed",
-    description:
-      "Master generics, conditional types, and advanced type inference to write safer, more maintainable code.",
-    courses: [
-      {
-        title: "TypeScript: The Complete Developer's Guide",
-        platform: "Udemy",
-        price: "$14.99",
-        duration: "27 hours",
-        rating: 4.8,
-        url: "#",
-      },
-      {
-        title: "Advanced TypeScript Masterclass",
-        platform: "Coursera",
-        price: "Free",
-        duration: "20 hours",
-        rating: 4.6,
-        url: "#",
-      },
-      {
-        title: "No BS TS by Matt Pocock",
-        platform: "YouTube",
-        price: "Free",
-        duration: "8 hours",
-        rating: 4.9,
-        url: "#",
-      },
-    ],
-  },
-  {
-    id: "2",
-    skill: "System Design",
-    category: "Architecture",
-    priority: "Critical",
-    status: "in-progress",
-    description:
-      "Learn to design scalable, distributed systems. Essential for senior engineering roles and technical interviews.",
-    courses: [
-      {
-        title: "Grokking Modern System Design",
-        platform: "Coursera",
-        price: "$39/month",
-        duration: "40 hours",
-        rating: 4.7,
-        url: "#",
-      },
-      {
-        title: "System Design Interview Course",
-        platform: "Udemy",
-        price: "$19.99",
-        duration: "35 hours",
-        rating: 4.5,
-        url: "#",
-      },
-      {
-        title: "System Design Primer",
-        platform: "YouTube",
-        price: "Free",
-        duration: "15 hours",
-        rating: 4.8,
-        url: "#",
-      },
-    ],
-  },
-  {
-    id: "3",
-    skill: "Cloud Architecture (AWS)",
-    category: "DevOps",
-    priority: "Important",
-    status: "locked",
-    description:
-      "Understand cloud infrastructure, serverless patterns, and cost optimization strategies on AWS.",
-    courses: [
-      {
-        title: "AWS Solutions Architect Professional",
-        platform: "Coursera",
-        price: "$49/month",
-        duration: "60 hours",
-        rating: 4.8,
-        url: "#",
-      },
-      {
-        title: "Ultimate AWS Certified Solutions Architect",
-        platform: "Udemy",
-        price: "$16.99",
-        duration: "50 hours",
-        rating: 4.7,
-        url: "#",
-      },
-      {
-        title: "AWS Full Course 2024",
-        platform: "YouTube",
-        price: "Free",
-        duration: "12 hours",
-        rating: 4.4,
-        url: "#",
-      },
-    ],
-  },
-  {
-    id: "4",
-    skill: "Machine Learning Fundamentals",
-    category: "AI/ML",
-    priority: "Important",
-    status: "locked",
-    description:
-      "Build a solid foundation in ML algorithms, neural networks, and practical implementation with Python.",
-    courses: [
-      {
-        title: "Machine Learning Specialization",
-        platform: "Coursera",
-        price: "$49/month",
-        duration: "80 hours",
-        rating: 4.9,
-        url: "#",
-      },
-      {
-        title: "Complete Machine Learning & Data Science Bootcamp",
-        platform: "Udemy",
-        price: "$17.99",
-        duration: "44 hours",
-        rating: 4.6,
-        url: "#",
-      },
-      {
-        title: "ML Course by Andrew Ng",
-        platform: "YouTube",
-        price: "Free",
-        duration: "25 hours",
-        rating: 4.9,
-        url: "#",
-      },
-    ],
-  },
-  {
-    id: "5",
-    skill: "Technical Leadership",
-    category: "Soft Skills",
-    priority: "Nice to Have",
-    status: "locked",
-    description:
-      "Develop skills to lead engineering teams, make architectural decisions, and mentor junior developers.",
-    courses: [
-      {
-        title: "Engineering Leadership Professional Certificate",
-        platform: "Coursera",
-        price: "$39/month",
-        duration: "30 hours",
-        rating: 4.5,
-        url: "#",
-      },
-      {
-        title: "Tech Lead Mastery",
-        platform: "Udemy",
-        price: "$24.99",
-        duration: "18 hours",
-        rating: 4.4,
-        url: "#",
-      },
-      {
-        title: "Engineering Management 101",
-        platform: "YouTube",
-        price: "Free",
-        duration: "6 hours",
-        rating: 4.3,
-        url: "#",
-      },
-    ],
-  },
-];
+export default function LearningAcademyPage() {
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [data, setData] = useState<LearningPath | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const supabase = createClient();
 
-function StarField() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fetchLearningPath = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/learning-path?user_id=${userId}`);
+      const result = await response.json();
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+      if (!response.ok) {
+        if (response.status === 404) {
+          // Check if profile exists to offer generation
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('resume_text, goals')
+            .eq('user_id', userId)
+            .single();
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const resizeCanvas = () => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-    };
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-
-    const stars: { x: number; y: number; size: number; speed: number; opacity: number }[] = [];
-    const numStars = 80;
-
-    for (let i = 0; i < numStars; i++) {
-      stars.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        size: Math.random() * 1.5 + 0.5,
-        speed: Math.random() * 0.3 + 0.1,
-        opacity: Math.random() * 0.5 + 0.2,
-      });
-    }
-
-    let animationId: number;
-    const animate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      for (const star of stars) {
-        star.y += star.speed;
-        star.opacity += (Math.random() - 0.5) * 0.02;
-        star.opacity = Math.max(0.1, Math.min(0.7, star.opacity));
-
-        if (star.y > canvas.height) {
-          star.y = 0;
-          star.x = Math.random() * canvas.width;
+          if (profileData?.resume_text && profileData?.goals?.target_role) {
+            setProfile(profileData);
+            setError("needs_generation");
+          } else {
+            setError("needs_upload");
+          }
+          return;
         }
-
-        ctx.beginPath();
-        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(139, 92, 246, ${star.opacity})`;
-        ctx.fill();
+        throw new Error(result.error || "Failed to fetch learning path");
       }
 
-      animationId = requestAnimationFrame(animate);
-    };
+      setData(result);
+      setError(null);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    animate();
+  const generateRoadmap = async () => {
+    if (!user || !profile) return;
 
-    return () => {
-      window.removeEventListener("resize", resizeCanvas);
-      cancelAnimationFrame(animationId);
-    };
+    setGenerating(true);
+    try {
+      const response = await fetch("/api/career-assessment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          target_role: profile.goals.target_role,
+          resume_text: profile.resume_text
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate assessment");
+      }
+
+      toast.success("Assessment generated! Creating your roadmap now...");
+      await fetchLearningPath(user.id);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  useEffect(() => {
+    async function loadUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUser(user);
+        fetchLearningPath(user.id);
+      } else {
+        setLoading(false);
+      }
+    }
+    loadUser();
   }, []);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 w-full h-full pointer-events-none opacity-40 dark:opacity-60"
-    />
-  );
-}
+  const toggleMilestone = async (title: string, currentStatus: boolean) => {
+    if (!user || !data) return;
 
-function CircularProgress({ value, size = 120 }: { value: number; size?: number }) {
-  const [animatedValue, setAnimatedValue] = useState(0);
-  const strokeWidth = 8;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const offset = circumference - (animatedValue / 100) * circumference;
+    // Optimistic UI update
+    const updatedRoadmap = data.roadmap.map(m =>
+      m.title === title ? { ...m, completed: !currentStatus } : m
+    );
+    setData({ ...data, roadmap: updatedRoadmap });
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setAnimatedValue(value);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [value]);
+    try {
+      const response = await fetch("/api/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          milestone_title: title,
+          completed: !currentStatus
+        })
+      });
 
-  return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg className="transform -rotate-90" width={size} height={size}>
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          fill="none"
-          className="text-muted/50"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          className="text-primary transition-all duration-1000 ease-out"
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-bold text-foreground">{animatedValue}%</span>
-        <span className="text-xs text-muted-foreground">Ready</span>
-      </div>
-    </div>
-  );
-}
+      if (!response.ok) {
+        throw new Error("Failed to update progress");
+      }
 
-function SkillNodeCard({
-  node,
-  index,
-  isExpanded,
-  onToggle,
-}: {
-  node: SkillNode;
-  index: number;
-  isExpanded: boolean;
-  onToggle: () => void;
-}) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setMounted(true), index * 100);
-    return () => clearTimeout(timer);
-  }, [index]);
-
-  const statusIcon = {
-    completed: <CheckCircle2 className="w-6 h-6 text-emerald-500" />,
-    "in-progress": <Zap className="w-6 h-6 text-primary animate-pulse" />,
-    locked: <Circle className="w-6 h-6 text-muted-foreground" />,
+      toast.success(!currentStatus ? "Milestone completed!" : "Milestone marked as incomplete");
+    } catch (err) {
+      // Revert on error
+      setData(data);
+      toast.error("Failed to sync progress with the server");
+    }
   };
 
-  const priorityColors = {
-    Critical: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
-    Important: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
-    "Nice to Have": "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-  };
-
-  const platformColors = {
-    Coursera: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-    Udemy: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
-    YouTube: "bg-red-500/10 text-red-600 dark:text-red-400",
-  };
-
-  return (
-    <div
-      className={`relative transition-all duration-500 ${
-        mounted ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-8"
-      }`}
-    >
-      {/* Timeline connector */}
-      {index < skillRoadmap.length - 1 && (
-        <div
-          className={`absolute left-[19px] top-14 w-0.5 transition-all duration-500 ${
-            node.status === "completed" ? "bg-emerald-500" : "bg-border"
-          }`}
-          style={{ height: isExpanded ? "calc(100% - 40px)" : "calc(100% - 20px)" }}
-        />
-      )}
-
-      {/* Node */}
-      <div className="flex gap-4">
-        {/* Status indicator */}
-        <div
-          className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-            node.status === "completed"
-              ? "bg-emerald-500/20"
-              : node.status === "in-progress"
-              ? "bg-primary/20"
-              : "bg-muted"
-          }`}
-        >
-          {statusIcon[node.status]}
-        </div>
-
-        {/* Card */}
-        <div
-          className={`flex-1 rounded-2xl border transition-all duration-300 overflow-hidden ${
-            node.status === "locked"
-              ? "bg-muted/30 border-border opacity-60"
-              : "bg-card border-border hover:border-primary/30 hover:shadow-lg"
-          }`}
-        >
-          <button
-            type="button"
-            onClick={onToggle}
-            disabled={node.status === "locked"}
-            className="w-full p-5 text-left"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="outline" className={priorityColors[node.priority]}>
-                    {node.priority}
-                  </Badge>
-                  <Badge variant="secondary" className="text-xs">
-                    {node.category}
-                  </Badge>
-                </div>
-                <h3 className="text-lg font-semibold text-foreground mb-1">{node.skill}</h3>
-                <p className="text-sm text-muted-foreground line-clamp-2">{node.description}</p>
-              </div>
-              {node.status !== "locked" && (
-                <ChevronDown
-                  className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${
-                    isExpanded ? "rotate-180" : ""
-                  }`}
-                />
-              )}
-            </div>
-          </button>
-
-          {/* Expanded content */}
-          <div
-            className={`transition-all duration-500 ease-out overflow-hidden ${
-              isExpanded ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
-            }`}
-          >
-            <div className="px-5 pb-5 border-t border-border pt-4">
-              <h4 className="text-sm font-medium text-foreground mb-4 flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-primary" />
-                Recommended Courses
-              </h4>
-              <div className="space-y-3">
-                {node.courses.map((course, courseIndex) => (
-                  <a
-                    key={courseIndex}
-                    href={course.url}
-                    className="block p-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors group"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge className={`text-xs ${platformColors[course.platform]}`}>
-                            {course.platform}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                            {course.rating}
-                          </span>
-                        </div>
-                        <h5 className="font-medium text-foreground group-hover:text-primary transition-colors truncate">
-                          {course.title}
-                        </h5>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {course.duration}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span
-                          className={`text-sm font-semibold ${
-                            course.price === "Free" ? "text-emerald-500" : "text-foreground"
-                          }`}
-                        >
-                          {course.price}
-                        </span>
-                        <ExternalLink className="w-4 h-4 text-muted-foreground mt-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            </div>
-          </div>
+  if (loading) {
+    return (
+      <div className="flex h-[80vh] w-full items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
+          <p className="text-sm text-muted-foreground animate-pulse">Curating your personalized learning journey...</p>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-export default function LearningPage() {
-  const [mounted, setMounted] = useState(false);
-  const [expandedNode, setExpandedNode] = useState<string | null>("2");
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const completedSkills = skillRoadmap.filter((s) => s.status === "completed").length;
-  const totalSkills = skillRoadmap.length;
-  const readinessScore = Math.round((completedSkills / totalSkills) * 100);
-  const skillsToMaster = totalSkills - completedSkills;
-
-  return (
-    <div className="relative min-h-screen">
-      {/* Animated star field background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <StarField />
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl" />
-      </div>
-
-      <div className="relative z-10 p-6 lg:p-8 space-y-8">
-        {/* Header */}
-        <div
-          className={`transition-all duration-500 ${
-            mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-          }`}
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <GraduationCap className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Learning Roadmap</h1>
-          </div>
-          <p className="text-muted-foreground">
-            Your personalized path to career advancement
+  if (error === "needs_generation") {
+    return (
+      <div className="flex flex-col items-center justify-center h-[80vh] container max-w-2xl mx-auto px-6 text-center space-y-8">
+        <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center text-primary animate-bounce">
+          <BrainCircuit className="w-12 h-12" />
+        </div>
+        <div className="space-y-3">
+          <h1 className="text-3xl font-bold tracking-tight">Ready to Build Your Roadmap?</h1>
+          <p className="text-muted-foreground text-lg">
+            We've found your profile and target role: <span className="text-primary font-semibold">{profile?.goals?.target_role}</span>.
+            We just need to analyze your skill gaps to build your personalized 30-day learning path.
           </p>
         </div>
-
-        {/* Summary Card */}
-        <div
-          className={`transition-all duration-500 delay-100 ${
-            mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-          }`}
+        <Button
+          size="lg"
+          className="h-12 px-8 text-base font-semibold"
+          onClick={generateRoadmap}
+          disabled={generating}
         >
-          <div className="rounded-2xl border border-border bg-card/80 backdrop-blur-sm p-6 lg:p-8">
-            <div className="flex flex-col lg:flex-row items-center gap-8">
-              <CircularProgress value={readinessScore} size={140} />
+          {generating ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Analyzing Skill Gaps...
+            </>
+          ) : (
+            <>
+              <Zap className="mr-2 h-5 w-5 fill-current" />
+              Generate My Learning Roadmap
+            </>
+          )}
+        </Button>
+      </div>
+    );
+  }
 
-              <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center lg:text-left">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Overall Readiness</p>
-                  <p className="text-3xl font-bold text-foreground">{readinessScore}%</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {readinessScore >= 80
-                      ? "Excellent progress!"
-                      : readinessScore >= 50
-                      ? "Good momentum"
-                      : "Keep learning"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Skills to Master</p>
-                  <p className="text-3xl font-bold text-foreground">{skillsToMaster}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    remaining on roadmap
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Career Impact</p>
-                  <div className="flex items-center justify-center lg:justify-start gap-2">
-                    <TrendingUp className="w-5 h-5 text-emerald-500" />
-                    <span className="text-lg font-semibold text-emerald-500">+34%</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    salary potential
-                  </p>
-                </div>
-              </div>
+  if (error === "needs_upload" || !data) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[80vh] container max-w-2xl mx-auto px-6 text-center space-y-8">
+        <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center text-muted-foreground">
+          <Layout className="w-12 h-12" />
+        </div>
+        <div className="space-y-3">
+          <h1 className="text-3xl font-bold tracking-tight">Start Your Learning Journey</h1>
+          <p className="text-muted-foreground text-lg">
+            To create a custom learning roadmap, you first need to upload your resume and specify a target role on the dashboard.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-12 px-8"
+            onClick={() => window.location.href = "/dashboard"}
+          >
+            Go to Dashboard
+          </Button>
+          <Button
+            size="lg"
+            className="h-12 px-8"
+            onClick={() => window.location.href = "/dashboard/resume"}
+          >
+            Upload Resume
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
-              <div className="shrink-0">
-                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
-                  <Target className="w-4 h-4" />
-                  Update Goals
-                </Button>
+  if (error && error !== "needs_generation" && error !== "needs_upload") {
+    return (
+      <div className="p-10 max-w-2xl mx-auto text-center space-y-6">
+        <div className="w-20 h-20 bg-destructive/10 rounded-full flex items-center justify-center mx-auto">
+          <Target className="w-10 h-10 text-destructive" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-2xl font-bold text-destructive">Something went wrong</h1>
+          <p className="text-muted-foreground">{error}</p>
+        </div>
+        <Button onClick={() => window.location.reload()}>
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
+  const completedCount = data.roadmap.filter(m => m.completed).length;
+  const progressPercent = (completedCount / data.roadmap.length) * 100;
+
+  return (
+    <div className="flex flex-col min-h-screen bg-slate-50/50">
+      {/* Header */}
+      <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-16 items-center justify-between px-6">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <BookOpen className="w-5 h-5 text-primary" />
+            </div>
+            <h1 className="text-xl font-bold tracking-tight">Learning Academy</h1>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="hidden md:flex flex-col items-end gap-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Overall Progress</span>
+              <div className="flex items-center gap-3">
+                <Progress value={progressPercent} className="w-32 h-2" />
+                <span className="text-xs font-bold text-primary">{Math.round(progressPercent)}%</span>
               </div>
             </div>
           </div>
         </div>
+      </header>
 
-        {/* Skill Roadmap Timeline */}
-        <div
-          className={`transition-all duration-500 delay-200 ${
-            mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-          }`}
-        >
-          <h2 className="text-lg font-semibold text-foreground mb-6">Skill Roadmap</h2>
-          <div className="space-y-6">
-            {skillRoadmap.map((node, index) => (
-              <SkillNodeCard
-                key={node.id}
-                node={node}
-                index={index}
-                isExpanded={expandedNode === node.id}
-                onToggle={() =>
-                  setExpandedNode(expandedNode === node.id ? null : node.id)
-                }
-              />
-            ))}
-          </div>
+      <main className="container p-6 mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Column: Roadmap */}
+        <div className="lg:col-span-8 space-y-6">
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Target className="w-5 h-5 text-primary" />
+                <h2 className="text-lg font-bold">30-Day {data.target_role} Roadmap</h2>
+              </div>
+              <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
+                AI Custom-Built
+              </Badge>
+            </div>
+
+            <div className="space-y-4 relative">
+              {/* Vertical line connecting milestones */}
+              <div className="absolute left-6 top-8 bottom-8 w-0.5 bg-border z-0" />
+
+              {data.roadmap.map((milestone, idx) => (
+                <Card
+                  key={idx}
+                  className={`relative z-10 border-l-4 ${milestone.completed ? 'border-l-emerald-500 bg-emerald-500/5' : 'border-l-primary'
+                    } hover:shadow-md transition-all`}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-5">
+                      <div className={`mt-1 flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center border-2 ${milestone.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-background border-primary text-primary'
+                        }`}>
+                        {milestone.completed ? <CheckCircle className="w-5 h-5" /> : <span>{idx + 1}</span>}
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-bold text-base">{milestone.title}</h3>
+                          <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-tight px-1.5 h- 5">
+                            {milestone.difficulty}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground leading-relaxed">{milestone.description}</p>
+                        <div className="pt-2 flex items-center gap-2">
+                          <Checkbox
+                            id={`milestone-${idx}`}
+                            checked={milestone.completed}
+                            onCheckedChange={() => toggleMilestone(milestone.title, milestone.completed)}
+                          />
+                          <label
+                            htmlFor={`milestone-${idx}`}
+                            className="text-xs font-medium cursor-pointer select-none"
+                          >
+                            Mark as completed
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+
+          {/* Capstone Project */}
+          {data.capstone && (
+            <Card className="border-2 border-primary/20 bg-primary/5">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2 text-primary">
+                  <Trophy className="w-5 h-5" />
+                  <CardTitle className="text-lg">Capstone Mastery Project</CardTitle>
+                </div>
+                <CardDescription>Synthesize your new skills into a portfolio-ready piece.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <h3 className="font-bold text-base">{data.capstone.title}</h3>
+                  <p className="text-sm leading-relaxed">{data.capstone.description}</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {data.capstone.technologies.map((tech, i) => (
+                      <Badge key={i} variant="outline" className="bg-background">{tech}</Badge>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-bold uppercase text-primary tracking-wider">Learning Outcomes</span>
+                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
+                      {data.capstone.learning_outcomes.map((outcome, i) => (
+                        <li key={i} className="text-xs flex items-center gap-2">
+                          <Zap className="w-3 h-3 text-amber-500" />
+                          {outcome}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
-      </div>
+
+        {/* Right Column: Skills & Resources */}
+        <div className="lg:col-span-4 space-y-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <BrainCircuit className="w-5 h-5 text-primary" />
+                <CardTitle className="text-base">Skill Gaps</CardTitle>
+              </div>
+              <CardDescription className="text-xs text-balance">The following skills were identified as missing for a {data.target_role} role.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {data.missing_skills.map((skill, i) => (
+                  <Badge key={i} className="px-3 py-1">{skill}</Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden">
+            <CardHeader className="bg-slate-50 border-b">
+              <div className="flex items-center gap-2">
+                <Lightbulb className="w-5 h-5 text-amber-500" />
+                <CardTitle className="text-base">Curated Resources</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y">
+                {data.missing_skills.map((skill) => (
+                  <div key={skill} className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{skill}</span>
+                      <TrendingUp className="w-3 h-3 text-emerald-500" />
+                    </div>
+                    <div className="space-y-2">
+                      {data.resources[skill]?.map((res, j) => (
+                        <a
+                          key={j}
+                          href={res.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between p-2 rounded-md hover:bg-slate-50 group border border-transparent hover:border-border transition-all"
+                        >
+                          <span className="text-xs font-medium group-hover:text-primary transition-colors">{res.title}</span>
+                          <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-all text-primary" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-indigo-500 to-primary text-white border-none shadow-lg">
+            <CardContent className="p-6 text-center space-y-4">
+              <div className="mx-auto w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <Trophy className="w-6 h-6 text-white" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-bold">Next Career Milestone</h3>
+                <p className="text-xs opacity-90 leading-relaxed">Complete your first 3 milestones to unlock a personalized interview prep session.</p>
+              </div>
+              <Button size="sm" variant="secondary" className="w-full bg-white text-primary hover:bg-white/90">
+                Learn More
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
     </div>
   );
 }
