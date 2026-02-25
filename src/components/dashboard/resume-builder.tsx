@@ -6,7 +6,7 @@ import {
     Download,
     Plus,
     Trash2,
-    Save,
+    
     CheckCircle,
     Briefcase,
     GraduationCap,
@@ -27,7 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { toast } from "sonner";
-import { syncProfile } from "@/lib/api";
+
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
@@ -93,7 +93,7 @@ export function ResumeBuilder({ user, initialProfile }: { user: any; initialProf
         skills: Array.isArray(initialProfile?.skills) ? initialProfile.skills : []
     });
 
-    const [isSaving, setIsSaving] = useState(false);
+    
     const [isExporting, setIsExporting] = useState(false);
     const [containerWidth, setContainerWidth] = useState(800);
     const previewRef = useRef<HTMLDivElement>(null);
@@ -142,32 +142,7 @@ export function ResumeBuilder({ user, initialProfile }: { user: any; initialProf
     // Aggressive scaling: fill the width minus small margin
     const scale = Math.max((containerWidth - PADDING_OFFSET) / A4_WIDTH, 0.3);
 
-    const handleSave = async () => {
-        setIsSaving(true);
-        try {
-            await syncProfile(user.id, {
-                full_name: data.fullName,
-                bio: data.bio,
-                country: data.country,
-                email: data.email,
-                linkedin_url: data.linkedin,
-                education: data.education,
-                experience: data.experience,
-                projects: data.projects,
-                achievements: data.achievements,
-                certifications: data.certifications,
-            }, data.skills);
-            toast.success("Resume Saved", {
-                description: "Your changes have been synced to your profile."
-            });
-        } catch (error) {
-            toast.error("Save Failed", {
-                description: "Could not sync changes to the database."
-            });
-        } finally {
-            setIsSaving(false);
-        }
-    };
+    
 
     const handleExport = async () => {
         if (!previewRef.current) return;
@@ -310,16 +285,6 @@ export function ResumeBuilder({ user, initialProfile }: { user: any; initialProf
                         <p className="text-xs text-muted-foreground">Draft your professional story</p>
                     </div>
                     <div className="flex gap-2">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleSave}
-                            disabled={isSaving}
-                            className="h-8 px-3 text-xs"
-                        >
-                            {isSaving ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Save className="w-3 h-3 mr-2 text-primary" />}
-                            Sync
-                        </Button>
                         <Button
                             size="sm"
                             onClick={handleExport}
