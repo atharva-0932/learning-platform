@@ -1,0 +1,22 @@
+[
+  {
+    "id": "web-frontend",
+    "title": "Frontend Basics",
+    "description": "Core concepts every frontend dev should know.",
+    "items": [
+      { "id": "html", "title": "HTML", "description": "Structure of the web" },
+      { "id": "css", "title": "CSS", "description": "Styling web pages" },
+      { "id": "javascript", "title": "JavaScript", "description": "Language of the web" }
+    ]
+  },
+  {
+    "id": "react-ecosystem",
+    "title": "React & Ecosystem",
+    "description": "Build interactive UIs",
+    "items": [
+      { "id": "react", "title": "React", "description": "UI library" },
+      { "id": "nextjs", "title": "Next.js", "description": "React framework" },
+      { "id": "state-management", "title": "State Management", "description": "Redux / Zustand" }
+    ]
+  }
+]
