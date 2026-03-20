@@ -1,9 +1,18 @@
+"use client";
+
+import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import Link from "next/link";
 
 export function Footer() {
   return (
-    <footer className="relative py-12 border-t border-border">
+    <motion.footer
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 0.5 }}
+      className="relative py-12 bg-background border-t border-border"
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           {/* Logo */}
@@ -44,6 +53,6 @@ export function Footer() {
           </p>
         </div>
       </div>
-    </footer>
+    </motion.footer>
   );
 }

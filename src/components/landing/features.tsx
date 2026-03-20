@@ -1,7 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { motion } from "framer-motion";
 import { Briefcase, FileText, Bell, Mic } from "lucide-react";
+
+const fadeUp = {
+  initial: { opacity: 0, y: 32 },
+  animate: { opacity: 1, y: 0 },
+  transition: { type: "spring", stiffness: 80, damping: 20 },
+};
+
+const stagger = {
+  animate: {
+    transition: {
+      staggerChildren: 0.12,
+      delayChildren: 0.1,
+    },
+  },
+};
 
 const features = [
   {
@@ -16,40 +32,41 @@ const features = [
     title: "Resume Builder",
     description:
       "Create stunning, ATS-optimized resumes with intelligent suggestions and modern templates.",
-    color: "bg-blue-500 text-white",
+    color: "bg-primary text-primary-foreground",
   },
   {
     icon: Bell,
     title: "Smart Follow-Up",
     description:
       "Track where you applied and get reminded of the optimal time to send a follow-up (5–7 days).",
-    color: "bg-emerald-500 text-white",
+    color: "bg-primary text-primary-foreground",
   },
   {
     icon: Mic,
     title: "Mock Interview",
     description:
       "Practice with AI interviewers, get real-time feedback, and build confidence for the big day.",
-    color: "bg-amber-500 text-white",
+    color: "bg-primary text-primary-foreground",
   },
 ];
 
 export function Features() {
-  const [mounted, setMounted] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   return (
-    <section className="relative py-24 bg-muted/30" id="features">
+    <motion.section
+      initial="initial"
+      whileInView="animate"
+      viewport={{ once: true, amount: 0.15 }}
+      variants={stagger}
+      className="relative py-24 bg-muted/30 border-t border-border"
+      id="features"
+    >
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section header */}
-        <div
-          className={`text-center mb-16 transition-all duration-700 ${
-            mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-          }`}
+        <motion.div
+          variants={fadeUp}
+          className="text-center mb-16"
         >
           <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4 text-balance">
             Everything You Need to{" "}
@@ -59,7 +76,7 @@ export function Features() {
             Comprehensive tools designed to accelerate your career growth at
             every stage of your professional journey.
           </p>
-        </div>
+        </motion.div>
 
         {/* Features grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -68,16 +85,12 @@ export function Features() {
             const isHovered = hoveredIndex === index;
 
             return (
-              <div
+              <motion.div
                 key={feature.title}
-                className={`relative group cursor-pointer transition-all duration-500 ${
-                  mounted
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-4"
-                }`}
-                style={{ transitionDelay: `${index * 100 + 200}ms` }}
+                variants={fadeUp}
                 onMouseEnter={() => setHoveredIndex(index)}
                 onMouseLeave={() => setHoveredIndex(null)}
+                className="relative group cursor-pointer"
               >
                 {/* Card */}
                 <div
@@ -120,11 +133,11 @@ export function Features() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
       </div>
-    </section>
+    </motion.section>
   );
 }

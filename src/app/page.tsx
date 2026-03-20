@@ -1,5 +1,5 @@
 import { Navbar } from "@/components/landing/navbar";
-import { Hero } from "@/components/landing/hero";
+import { SplineInteractive } from "@/components/landing/spline-interactive";
 import { Features } from "@/components/landing/features";
 import { Footer } from "@/components/landing/footer";
 import { createClient } from "@/utils/supabase/server";
@@ -9,9 +9,9 @@ export default async function LandingPage() {
   const { data: { user } } = await supabase.auth.getUser();
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background text-foreground">
       <Navbar user={user} />
-      <Hero />
+      <SplineInteractive />
       <Features />
       <Footer />
     </main>
