@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ResumeUploadForm } from "@/components/dashboard/resume-upload-form";
 import { ProfileDataView } from "@/components/dashboard/profile-data-view";
+import { SmartFollowUp } from "@/components/dashboard/smart-follow-up";
 
 export function DashboardContent({ user, profileData }: { user: any, profileData?: any }) {
   const [mounted, setMounted] = useState(false);
@@ -30,7 +31,7 @@ export function DashboardContent({ user, profileData }: { user: any, profileData
       </div>
 
       {/* Main Content Area */}
-      <div className="w-full">
+      <div className="w-full space-y-10">
         {/* Show existing profile data or upload form */}
         {!showUploadForm && profileData ? (
           <ProfileDataView
@@ -45,6 +46,9 @@ export function DashboardContent({ user, profileData }: { user: any, profileData
             />
           </div>
         )}
+
+        {/* Smart Follow-Up - Job application tracking with optimal follow-up timing */}
+        <SmartFollowUp userId={user.id} />
       </div>
 
     </div>

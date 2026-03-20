@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 from api.utils.resume_parser import parse_resume_pdf
 from api.utils.gemini import call_gemini_with_retry
-from api.utils.learning_path import generate_roadmap, find_resources, generate_capstone_project
+from api.utils.learning_path import get_roadmap_for_role, find_resources, generate_capstone_project, get_roadmapsh_id, fetch_roadmapsh_raw
 from google import genai
 import io
 import json
@@ -74,9 +74,9 @@ def get_learning_path():
             if isinstance(milestone, dict):
                 milestone['completed'] = milestone.get('title') in completed_milestones
 
-        # 4. Find Resources for each missing skill
+        # 4. Find Resources for each missing skill (pass target_role for roadmap.sh links)
         print("Finding resources...")
-        resources = {skill: find_resources(skill) for skill in missing_skills}
+        resources = {skill: find_resources(skill, target_role) for skill in missing_skills}
 
         # 5. Generate Capstone Project
         print("Generating capstone...")
@@ -294,6 +294,164 @@ def career_assessment():
             }), 429
             
         return jsonify({"error": f"Internal Server Error: {error_msg}"}), 500
+
+@app.route('/api/roadmap', methods=['GET'])
+def get_roadmap():
+    """Returns roadmap for a target role. Uses assessment if user_id provided, else target_role + missing_skills."""
+    if not supabase:
+        return jsonify({"error": "Supabase not initialized"}), 500
+    user_id = request.args.get('user_id')
+    target_role = request.args.get('target_role')
+    missing_skills_raw = request.args.get('missing_skills', '[]')
+
+    try:
+        missing_skills = []
+        if user_id:
+            res = supabase.table('user_assessments')\
+                .select('*')\
+                .eq('user_id', user_id)\
+                .order('created_at', desc=True)\
+                .limit(1)\
+                .execute()
+            if res.data:
+                feedback = res.data[0].get('feedback') or {}
+                keywords = feedback.get('keywords') or {}
+                missing_skills = keywords.get('missing', [])
+                if not target_role:
+                    target_role = res.data[0].get('target_role')
+        else:
+            try:
+                missing_skills = json.loads(missing_skills_raw) if missing_skills_raw else []
+            except json.JSONDecodeError:
+                pass
+
+        if not target_role:
+            return jsonify({"error": "target_role is required (or provide user_id with an assessment)"}), 400
+
+        # Use static roadmaps - no Gemini/AI required
+        roadmap = get_roadmap_for_role(target_role)
+
+        if user_id:
+            progress_res = supabase.table('user_learning_progress')\
+                .select('milestone_title, completed')\
+                .eq('user_id', user_id)\
+                .execute()
+            completed = [p['milestone_title'] for p in (progress_res.data or []) if p.get('completed')]
+            for m in roadmap:
+                if isinstance(m, dict):
+                    m['completed'] = m.get('title') in completed
+
+        roadmap_id = get_roadmapsh_id(target_role)
+        roadmap_sh_raw = fetch_roadmapsh_raw(roadmap_id) if roadmap_id else None
+
+        return jsonify({
+            "target_role": target_role,
+            "roadmap": roadmap,
+            "roadmap_sh_url": f"https://roadmap.sh/{roadmap_id}" if roadmap_id else None,
+            "roadmap_sh_id": roadmap_id,
+            "roadmap_sh_raw": roadmap_sh_raw,
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/job-applications', methods=['GET'])
+def get_job_applications():
+    if not supabase:
+        return jsonify({"error": "Supabase not initialized"}), 500
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+    try:
+        res = supabase.table('job_applications')\
+            .select('*')\
+            .eq('user_id', user_id)\
+            .order('applied_at', desc=True)\
+            .execute()
+        return jsonify(res.data or []), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/job-applications', methods=['POST'])
+def create_job_application():
+    if not supabase:
+        return jsonify({"error": "Supabase not initialized"}), 500
+    data = request.json
+    user_id = data.get('user_id')
+    company = data.get('company')
+    role = data.get('role')
+    if not all([user_id, company, role]):
+        return jsonify({"error": "user_id, company, and role are required"}), 400
+    try:
+        from datetime import datetime, timedelta, timezone
+        applied_at = data.get('applied_at')
+        if applied_at:
+            try:
+                applied_dt = datetime.fromisoformat(str(applied_at).replace('Z', '+00:00'))
+            except ValueError:
+                applied_dt = datetime.now(timezone.utc)
+        else:
+            applied_dt = datetime.now(timezone.utc)
+        optimal = data.get('optimal_follow_up_at')
+        if not optimal:
+            optimal_dt = applied_dt + timedelta(days=5)
+            optimal = optimal_dt.isoformat()
+        insert_data = {
+            "user_id": user_id,
+            "company": company,
+            "role": role,
+            "applied_at": applied_at if applied_at else applied_dt.isoformat(),
+            "status": data.get('status', 'applied'),
+            "optimal_follow_up_at": optimal,
+            "notes": data.get('notes'),
+            "job_url": data.get('job_url'),
+        }
+        res = supabase.table('job_applications').insert(insert_data).execute()
+        return jsonify(res.data[0] if res.data else insert_data), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/job-applications/<application_id>', methods=['PATCH'])
+def update_job_application(application_id):
+    if not supabase:
+        return jsonify({"error": "Supabase not initialized"}), 500
+    data = request.json
+    user_id = data.get('user_id')
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+    try:
+        update_fields = {}
+        for k in ['company', 'role', 'applied_at', 'status', 'optimal_follow_up_at', 'follow_up_sent', 'notes', 'job_url']:
+            if k in data:
+                update_fields[k] = data[k]
+        if not update_fields:
+            return jsonify({"error": "No fields to update"}), 400
+        res = supabase.table('job_applications')\
+            .update(update_fields)\
+            .eq('id', application_id)\
+            .eq('user_id', user_id)\
+            .execute()
+        if not res.data:
+            return jsonify({"error": "Application not found"}), 404
+        return jsonify(res.data[0]), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/job-applications/<application_id>', methods=['DELETE'])
+def delete_job_application(application_id):
+    if not supabase:
+        return jsonify({"error": "Supabase not initialized"}), 500
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+    try:
+        supabase.table('job_applications')\
+            .delete()\
+            .eq('id', application_id)\
+            .eq('user_id', user_id)\
+            .execute()
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/parse-resume', methods=['POST'])
 def parse_resume():

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Briefcase, FileText, GraduationCap, Mic } from "lucide-react";
+import { Briefcase, FileText, Bell, Mic } from "lucide-react";
 
 const features = [
   {
@@ -19,10 +19,10 @@ const features = [
     color: "bg-blue-500 text-white",
   },
   {
-    icon: GraduationCap,
-    title: "Learning Academy",
+    icon: Bell,
+    title: "Smart Follow-Up",
     description:
-      "Curated learning paths with courses and resources to help you acquire in-demand skills.",
+      "Track where you applied and get reminded of the optimal time to send a follow-up (5–7 days).",
     color: "bg-emerald-500 text-white",
   },
   {

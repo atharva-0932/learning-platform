@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, FileText, Sparkles, GraduationCap, Briefcase, Target, BookOpen, Mic, ArrowRight } from "lucide-react";
+import { CheckCircle, FileText, Sparkles, GraduationCap, Briefcase, Target, Mic, ArrowRight } from "lucide-react";
 
 interface ProfileDataViewProps {
     profileData: {
@@ -188,7 +188,7 @@ export function ProfileDataView({ profileData, onUploadAnother }: ProfileDataVie
             {/* Quick Actions - Modern Card Grid */}
             <div>
                 <h3 className="text-xl font-semibold mb-4">Continue Your Journey</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <a href="/dashboard/career" className="group">
                         <Card className="h-full border-2 hover:border-primary hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
                             <CardContent className="p-6">
@@ -216,23 +216,6 @@ export function ProfileDataView({ profileData, onUploadAnother }: ProfileDataVie
                                     <div>
                                         <h4 className="font-semibold mb-1 group-hover:text-primary transition-colors">Resume Builder</h4>
                                         <p className="text-xs text-muted-foreground">Optimize your resume</p>
-                                    </div>
-                                    <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </a>
-
-                    <a href="/dashboard/learning" className="group">
-                        <Card className="h-full border-2 hover:border-primary hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
-                            <CardContent className="p-6">
-                                <div className="flex flex-col items-center text-center gap-4">
-                                    <div className="p-4 bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl group-hover:scale-110 transition-transform">
-                                        <BookOpen className="w-7 h-7 text-primary" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-semibold mb-1 group-hover:text-primary transition-colors">Learning Paths</h4>
-                                        <p className="text-xs text-muted-foreground">Upskill yourself</p>
                                     </div>
                                     <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                                 </div>

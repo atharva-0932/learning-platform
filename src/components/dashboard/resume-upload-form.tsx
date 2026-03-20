@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Upload, FileText, Loader2, CheckCircle, Sparkles, GraduationCap, Briefcase, Target, BookOpen, Mic } from "lucide-react";
+import { Upload, FileText, Loader2, CheckCircle, Sparkles, GraduationCap, Briefcase, Target, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -242,20 +242,6 @@ export function ResumeUploadForm({ userId, onSuccess }: ResumeUploadFormProps) {
                                         <div>
                                             <h4 className="font-semibold text-sm mb-1">Resume Builder</h4>
                                             <p className="text-xs text-muted-foreground">Create and optimize your resume</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </a>
-
-                            <a href="/dashboard/learning" className="block group">
-                                <div className="border rounded-lg p-4 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer">
-                                    <div className="flex items-start gap-3">
-                                        <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-                                            <BookOpen className="w-5 h-5 text-primary" />
-                                        </div>
-                                        <div>
-                                            <h4 className="font-semibold text-sm mb-1">Learning Academy</h4>
-                                            <p className="text-xs text-muted-foreground">Upskill with curated learning paths</p>
                                         </div>
                                     </div>
                                 </div>

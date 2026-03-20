@@ -6,7 +6,7 @@ import {
   LayoutDashboard, 
   Briefcase, 
   FileText, 
-  GraduationCap, 
+  Bell, 
   Mic2, 
   Settings, 
   LogOut 
@@ -18,7 +18,7 @@ const navItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Career Recommender", href: "/career", icon: Briefcase },
   { name: "Resume Builder", href: "/resume", icon: FileText },
-  { name: "Learning Academy", href: "/academy", icon: GraduationCap },
+  { name: "Smart Follow-Up", href: "/dashboard", icon: Bell },
   { name: "Mock Interview", href: "/interview", icon: Mic2 },
 ];
 
