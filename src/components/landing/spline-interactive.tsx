@@ -16,7 +16,7 @@ export function SplineInteractive() {
       transition={{ duration: 0.6 }}
       className="w-full"
     >
-    <Card className="w-full min-h-[70vh] md:h-[85vh] bg-gradient-to-b from-background via-primary/5 to-muted/30 relative overflow-hidden border-0 rounded-none border-b border-border">
+    <Card className="w-full min-h-[70vh] md:h-[85vh] bg-gradient-to-b from-background via-primary/5 to-muted/30 relative overflow-hidden border-0 rounded-none">
       <Spotlight
         className="-top-40 left-0 md:left-60 md:-top-20"
         fill="#8b5cf6"

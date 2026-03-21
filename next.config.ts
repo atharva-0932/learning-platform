@@ -1,5 +1,13 @@
 const nextConfig = {
-  // ... other config
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
+    ],
+  },
   rewrites: async () => {
     return [
       {
