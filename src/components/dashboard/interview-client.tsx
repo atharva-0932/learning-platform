@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import Vapi from "@vapi-ai/web";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Mic,
   MicOff,
@@ -17,6 +18,7 @@ import {
   Volume2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { UpdateTargetRoleForm } from "@/components/dashboard/update-target-role-form";
 
 const VAPI_ASSISTANT_ID = "f3f950cc-601d-441f-8d38-67e5383cf706";
 
@@ -273,7 +275,8 @@ function ScoreBar({
   );
 }
 
-export function InterviewClient({ targetRole }: { targetRole: string | null }) {
+export function InterviewClient({ userId, targetRole }: { userId: string; targetRole: string | null }) {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -408,15 +411,27 @@ export function InterviewClient({ targetRole }: { targetRole: string | null }) {
           <p className="text-muted-foreground">
             Practice with AI and get real-time feedback
           </p>
-          {!targetRole && (
-            <div className="mt-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm">
-              No target role set.{" "}
-              <Link href="/dashboard" className="underline font-medium">
-                Upload your resume
-              </Link>{" "}
-              on the dashboard to customize the interview for your desired role.
-            </div>
-          )}
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            {targetRole ? (
+              <UpdateTargetRoleForm
+                userId={userId}
+                currentRole={targetRole}
+                onSuccess={() => router.refresh()}
+              />
+            ) : (
+              <div className="flex items-center gap-3">
+                <UpdateTargetRoleForm
+                  userId={userId}
+                  currentRole=""
+                  onSuccess={() => router.refresh()}
+                />
+                <span className="text-muted-foreground text-sm">or</span>
+                <Link href="/dashboard" className="text-sm text-primary hover:underline font-medium">
+                  Upload your resume
+                </Link>
+              </div>
+            )}
+          </div>
           {error && (
             <div className="mt-4 p-4 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm">
               {error}

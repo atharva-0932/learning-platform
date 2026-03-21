@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Briefcase,
   CheckCircle,
@@ -10,6 +11,7 @@ import {
   Rocket
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { UpdateTargetRoleForm } from "@/components/dashboard/update-target-role-form";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ResumeUploadForm } from "@/components/dashboard/resume-upload-form";
@@ -25,6 +27,7 @@ interface CareerContentProps {
 }
 
 export function CareerContent({ user, assessment, profile }: CareerContentProps) {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -58,9 +61,18 @@ export function CareerContent({ user, assessment, profile }: CareerContentProps)
             </p>
           </div>
           {(targetRole || assessment) && !isEditing && (
-            <Button onClick={() => setIsEditing(true)} variant="outline" size="sm">
-              Update Profile
-            </Button>
+            <div className="flex items-center gap-2">
+              {targetRole && (
+                <UpdateTargetRoleForm
+                  userId={user.id}
+                  currentRole={targetRole}
+                  onSuccess={() => router.refresh()}
+                />
+              )}
+              <Button onClick={() => setIsEditing(true)} variant="outline" size="sm">
+                Update Profile
+              </Button>
+            </div>
           )}
         </div>
       </header>

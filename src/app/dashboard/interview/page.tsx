@@ -18,5 +18,5 @@ export default async function InterviewPage() {
 
   const targetRole = profile?.goals?.target_role ?? null;
 
-  return <InterviewClient targetRole={targetRole} />;
+  return <InterviewClient userId={user.id} targetRole={targetRole} />;
 }
