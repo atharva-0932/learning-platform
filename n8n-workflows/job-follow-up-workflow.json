@@ -1,0 +1,93 @@
+{
+  "name": "Job Follow-Up - Draft & Send Email",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "job-follow-up",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "job-follow-up",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "to",
+              "name": "to",
+              "value": "={{ $json.recruiterEmail }}",
+              "type": "string"
+            },
+            {
+              "id": "subject",
+              "name": "subject",
+              "value": "=Follow-up: {{ $json.jobTitle }} at {{ $json.companyName }}",
+              "type": "string"
+            },
+            {
+              "id": "body",
+              "name": "body",
+              "value": "=Hi,\n\nI hope this email finds you well. I wanted to follow up on my application for the {{ $json.jobTitle }} position at {{ $json.companyName }}.\n\nI submitted my application recently and remain very interested in the opportunity. I would welcome the chance to discuss how my experience aligns with your team's needs.\n\nThank you for your time and consideration.\n\nBest regards",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-template",
+      "name": "Draft Email Content",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Follow-up processed\" } }}",
+        "options": {}
+      },
+      "id": "respond-success",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Draft Email Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft Email Content": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": []
+}

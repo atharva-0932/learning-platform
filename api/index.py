@@ -404,6 +404,7 @@ def create_job_application():
             "optimal_follow_up_at": optimal,
             "notes": data.get('notes'),
             "job_url": data.get('job_url'),
+            "recruiter_email": data.get('recruiter_email'),
         }
         res = supabase.table('job_applications').insert(insert_data).execute()
         return jsonify(res.data[0] if res.data else insert_data), 201
@@ -420,7 +421,7 @@ def update_job_application(application_id):
         return jsonify({"error": "user_id is required"}), 400
     try:
         update_fields = {}
-        for k in ['company', 'role', 'applied_at', 'status', 'optimal_follow_up_at', 'follow_up_sent', 'notes', 'job_url']:
+        for k in ['company', 'role', 'applied_at', 'status', 'optimal_follow_up_at', 'follow_up_sent', 'notes', 'job_url', 'recruiter_email', 'last_follow_up_at']:
             if k in data:
                 update_fields[k] = data[k]
         if not update_fields:

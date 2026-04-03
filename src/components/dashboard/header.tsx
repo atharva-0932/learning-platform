@@ -3,22 +3,12 @@
 import { Bell, Search, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { logout } from "@/app/auth/actions";
 
-export function DashboardHeader({ user }: { user: any }) {
-  const userName = user?.email?.split('@')[0] || "User";
+export function DashboardHeader({ user }: { user: { email?: string | null } | null }) {
+  const userName = user?.email?.split("@")[0] ?? "User";
   return (
-    <header className="h-16 bg-background border-b border-border flex items-center justify-between px-6">
-      {/* Search */}
+    <header className="h-16 border-b border-border bg-background flex items-center justify-between px-6">
       <div className="relative max-w-md flex-1">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
@@ -27,12 +17,9 @@ export function DashboardHeader({ user }: { user: any }) {
         />
       </div>
 
-      {/* Right side */}
       <div className="flex items-center gap-2">
-        {/* Theme Toggle */}
         <ThemeToggle />
 
-        {/* Notifications */}
         <Button
           variant="ghost"
           size="icon"
@@ -43,44 +30,15 @@ export function DashboardHeader({ user }: { user: any }) {
           <span className="sr-only">Notifications</span>
         </Button>
 
-        {/* User menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="flex items-center gap-3 px-3 hover:bg-muted"
-            >
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                <User className="w-4 h-4 text-primary-foreground" />
-              </div>
-              <div className="hidden sm:block text-left">
-                <p className="text-sm font-medium text-foreground capitalize">{userName}</p>
-                <p className="text-xs text-muted-foreground">Pro Plan</p>
-              </div>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 bg-popover border-border">
-            <DropdownMenuLabel className="text-foreground">
-              My Account
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator className="bg-border" />
-            <DropdownMenuItem className="text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer">
-              Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer">
-              Settings
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer">
-              Billing
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-border" />
-            <form action={logout} className="w-full">
-              <button type="submit" className="w-full relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-destructive/10 text-destructive data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
-                Log out
-              </button>
-            </form>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div
+          className="hidden sm:flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-sm text-muted-foreground"
+          title={user?.email ?? undefined}
+        >
+          <User className="w-4 h-4 shrink-0" />
+          <span className="max-w-[140px] truncate capitalize text-foreground">
+            {userName}
+          </span>
+        </div>
       </div>
     </header>
   );

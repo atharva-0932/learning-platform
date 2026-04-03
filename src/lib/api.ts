@@ -72,7 +72,7 @@ export async function getJobApplications(userId: string) {
     return response.json();
 }
 
-export async function createJobApplication(userId: string, data: { company: string; role: string; applied_at?: string; optimal_follow_up_at?: string; notes?: string; job_url?: string; status?: string }) {
+export async function createJobApplication(userId: string, data: { company: string; role: string; applied_at?: string; optimal_follow_up_at?: string; notes?: string; job_url?: string; status?: string; recruiter_email?: string }) {
     const response = await fetch("/api/job-applications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -84,7 +84,7 @@ export async function createJobApplication(userId: string, data: { company: stri
     return response.json();
 }
 
-export async function updateJobApplication(userId: string, id: string, data: Partial<{ company: string; role: string; applied_at: string; optimal_follow_up_at: string; status: string; follow_up_sent: boolean; notes: string; job_url: string }>) {
+export async function updateJobApplication(userId: string, id: string, data: Partial<{ company: string; role: string; applied_at: string; optimal_follow_up_at: string; status: string; follow_up_sent: boolean; notes: string; job_url: string; recruiter_email: string; last_follow_up_at: string }>) {
     const response = await fetch(`/api/job-applications/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

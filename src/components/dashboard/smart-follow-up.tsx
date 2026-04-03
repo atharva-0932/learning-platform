@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Bell,
   Loader2,
+  Pencil,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ import {
   deleteJobApplication,
 } from "@/lib/api";
 import { toast } from "sonner";
+import { FollowUpButton } from "@/components/dashboard/follow-up-button";
 
 const STATUS_OPTIONS = [
   { value: "waiting_to_hear_back", label: "Waiting to hear back", color: "amber" },
@@ -74,6 +76,8 @@ interface JobApplication {
   follow_up_sent: boolean;
   notes: string | null;
   job_url: string | null;
+  recruiter_email: string | null;
+  last_follow_up_at: string | null;
 }
 
 type FollowUpStatus = "now" | "soon" | "upcoming";
@@ -86,6 +90,80 @@ function getFollowUpStatus(optimalAt: string | null, followUpSent: boolean): Fol
   if (diffDays <= 0) return "now";
   if (diffDays <= 2) return "soon";
   return "upcoming";
+}
+
+function RecruiterEmailField({
+  app,
+  userId,
+  onUpdate,
+}: {
+  app: JobApplication;
+  userId: string;
+  onUpdate: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(app.recruiter_email || "");
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    const trimmed = value.trim();
+    if (trimmed === (app.recruiter_email || "")) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateJobApplication(userId, app.id, { recruiter_email: trimmed });
+      toast.success("Recruiter email updated");
+      onUpdate();
+      setEditing(false);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <div className="mt-1.5 flex items-center gap-1">
+        <Input
+          type="email"
+          placeholder="recruiter@company.com"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSave();
+            if (e.key === "Escape") setEditing(false);
+          }}
+          className="h-7 text-xs"
+          autoFocus
+          disabled={saving}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className="mt-1.5 text-left text-xs text-muted-foreground hover:text-foreground transition-colors"
+    >
+      {app.recruiter_email ? (
+        <span className="flex items-center gap-1">
+          <span>Recruiter: {app.recruiter_email}</span>
+          <Pencil className="w-3 h-3 opacity-50" />
+        </span>
+      ) : (
+        <span className="flex items-center gap-1 text-primary/80">
+          <Plus className="w-3 h-3" />
+          Add recruiter email for follow-up
+        </span>
+      )}
+    </button>
+  );
 }
 
 function formatDate(iso: string) {
@@ -118,6 +196,7 @@ export function SmartFollowUp({ userId }: { userId: string }) {
     status: "waiting_to_hear_back" as string,
     notes: "",
     job_url: "",
+    recruiter_email: "",
   });
 
   const fetchApplications = async () => {
@@ -150,9 +229,10 @@ export function SmartFollowUp({ userId }: { userId: string }) {
         status: form.status || "waiting_to_hear_back",
         notes: form.notes.trim() || undefined,
         job_url: form.job_url.trim() || undefined,
+        recruiter_email: form.recruiter_email.trim() || undefined,
       });
       toast.success("Application added! Optimal follow-up in 5 days.");
-      setForm({ company: "", role: "", applied_at: new Date().toISOString().slice(0, 10), status: "waiting_to_hear_back", notes: "", job_url: "" });
+      setForm({ company: "", role: "", applied_at: new Date().toISOString().slice(0, 10), status: "waiting_to_hear_back", notes: "", job_url: "", recruiter_email: "" });
       setShowForm(false);
       fetchApplications();
     } catch (err: any) {
@@ -286,6 +366,17 @@ export function SmartFollowUp({ userId }: { userId: string }) {
                   onChange={(e) => setForm((f) => ({ ...f, job_url: e.target.value }))}
                 />
               </div>
+              <div>
+                <Label htmlFor="recruiter_email">Recruiter Email</Label>
+                <Input
+                  id="recruiter_email"
+                  type="email"
+                  placeholder="recruiter@company.com"
+                  value={form.recruiter_email}
+                  onChange={(e) => setForm((f) => ({ ...f, recruiter_email: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Required for automated follow-up emails</p>
+              </div>
               <div className="sm:col-span-2">
                 <Label htmlFor="notes">Notes</Label>
                 <Input
@@ -324,16 +415,26 @@ export function SmartFollowUp({ userId }: { userId: string }) {
                 {dueNow.map((app) => (
                   <div
                     key={app.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-background/80 border"
+                    className="flex items-center justify-between gap-3 p-3 rounded-lg bg-background/80 border"
                   >
                     <div>
                       <p className="font-medium">{app.company}</p>
                       <p className="text-sm text-muted-foreground">{app.role}</p>
                     </div>
-                    <Button size="sm" onClick={() => handleMarkFollowUpSent(app)}>
-                      <CheckCircle2 className="w-4 h-4 mr-1" />
-                      Mark Sent
-                    </Button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <FollowUpButton
+                        userId={userId}
+                        jobId={app.id}
+                        recruiterEmail={app.recruiter_email}
+                        companyName={app.company}
+                        jobTitle={app.role}
+                        onSuccess={fetchApplications}
+                      />
+                      <Button size="sm" variant="ghost" onClick={() => handleMarkFollowUpSent(app)}>
+                        <CheckCircle2 className="w-4 h-4 mr-1" />
+                        Mark Sent
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </CardContent>
@@ -423,6 +524,11 @@ export function SmartFollowUp({ userId }: { userId: string }) {
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground mt-0.5">{app.role}</p>
+                      <RecruiterEmailField
+                        app={app}
+                        userId={userId}
+                        onUpdate={fetchApplications}
+                      />
                       <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
@@ -446,6 +552,16 @@ export function SmartFollowUp({ userId }: { userId: string }) {
                         >
                           <ExternalLink className="w-4 h-4" />
                         </a>
+                      )}
+                      {!app.follow_up_sent && (status === "now" || status === "soon") && (
+                        <FollowUpButton
+                          userId={userId}
+                          jobId={app.id}
+                          recruiterEmail={app.recruiter_email}
+                          companyName={app.company}
+                          jobTitle={app.role}
+                          onSuccess={fetchApplications}
+                        />
                       )}
                       {!app.follow_up_sent && status === "now" && (
                         <Button size="sm" variant="outline" onClick={() => handleMarkFollowUpSent(app)}>
