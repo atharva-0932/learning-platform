@@ -7,8 +7,15 @@ import { Card } from "@/components/ui/card";
 import { Spotlight } from "@/components/ui/spotlight";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import type { User } from "@supabase/supabase-js";
 
-export function SplineInteractive() {
+export function SplineInteractive({
+  user,
+  onGetStartedClick,
+}: {
+  user?: User | null;
+  onGetStartedClick?: () => void;
+}) {
   return (
     <motion.section
       initial={{ opacity: 0 }}
@@ -33,15 +40,37 @@ export function SplineInteractive() {
             Career roadmaps, ATS-optimized resumes, interview prep, and job tracking—all in one place. Land your dream role with AI by your side.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-4">
-            <Link href="/dashboard">
+            {user ? (
+              <Link href="/dashboard">
+                <Button
+                  size="lg"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-8 py-6"
+                >
+                  Get Started Free
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            ) : onGetStartedClick ? (
               <Button
+                type="button"
                 size="lg"
                 className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-8 py-6"
+                onClick={onGetStartedClick}
               >
                 Get Started Free
-                <ArrowRight className="w-4 h-4 ml-2" />
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-            </Link>
+            ) : (
+              <Link href="/signup">
+                <Button
+                  size="lg"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-8 py-6"
+                >
+                  Get Started Free
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            )}
             <Link href="#features">
               <Button
                 variant="outline"

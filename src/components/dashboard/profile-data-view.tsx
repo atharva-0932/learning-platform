@@ -1,9 +1,15 @@
 "use client";
 
+import { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AnimatedTabs } from "@/components/ui/animated-tabs";
 import { CheckCircle, FileText, Sparkles, GraduationCap, Briefcase, Target, Mic, ArrowRight } from "lucide-react";
+
+/** Matches `--primary` (#8b5cf6) + violet-400 for glow menu item halos */
+const PROFILE_TAB_GLOW =
+    "radial-gradient(circle, rgba(139,92,246,0.24) 0%, rgba(167,139,250,0.12) 48%, rgba(139,92,246,0) 100%)";
 
 interface ProfileDataViewProps {
     profileData: {
@@ -22,6 +28,145 @@ export function ProfileDataView({ profileData, onUploadAnother }: ProfileDataVie
         education: profileData.education?.length || 0,
         experience: profileData.experience?.length || 0
     };
+
+    const defaultTabId = useMemo(() => {
+        if (stats.skills) return "skills";
+        if (stats.experience) return "experience";
+        if (stats.education) return "education";
+        return "skills";
+    }, [stats.skills, stats.experience, stats.education]);
+
+    const profileTabs = useMemo(
+        () => [
+            {
+                id: "skills",
+                label: "Skills",
+                icon: Sparkles,
+                gradient: PROFILE_TAB_GLOW,
+                iconColor: "text-primary",
+                iconHoverClass: "group-hover:text-primary",
+                content: (
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <Sparkles className="size-5 text-primary" aria-hidden />
+                            <h3 className="text-lg font-semibold text-foreground">
+                                Skills &amp; expertise
+                            </h3>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                            Technical and professional capabilities from your resume.
+                        </p>
+                        {profileData.skills && profileData.skills.length > 0 ? (
+                            <div className="flex flex-wrap gap-2 pt-1">
+                                {profileData.skills.map((skill: string, idx: number) => (
+                                    <Badge
+                                        key={idx}
+                                        variant="secondary"
+                                        className="px-3 py-1.5 text-sm font-medium hover:bg-primary/15"
+                                    >
+                                        {skill}
+                                    </Badge>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
+                                No skills extracted yet. Update your resume to sync skills here.
+                            </p>
+                        )}
+                    </div>
+                ),
+            },
+            {
+                id: "experience",
+                label: "Experience",
+                icon: Briefcase,
+                gradient: PROFILE_TAB_GLOW,
+                iconColor: "text-primary",
+                iconHoverClass: "group-hover:text-primary",
+                content: (
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <Briefcase className="size-5 text-primary" aria-hidden />
+                            <h3 className="text-lg font-semibold text-foreground">Work experience</h3>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                            Roles and impact from your profile.
+                        </p>
+                        {profileData.experience && profileData.experience.length > 0 ? (
+                            <div className="space-y-4 pt-1">
+                                {profileData.experience.map((exp: any, idx: number) => (
+                                    <div
+                                        key={idx}
+                                        className="relative border-l-2 border-primary/35 pb-4 pl-6 last:pb-0"
+                                    >
+                                        <div className="absolute -left-[9px] top-0 size-4 rounded-full border-4 border-background bg-primary" />
+                                        <p className="mb-1 text-base font-semibold text-foreground">{exp.role}</p>
+                                        <p className="mb-1 text-sm text-muted-foreground">{exp.company}</p>
+                                        {exp.duration && (
+                                            <p className="mb-2 text-xs font-medium text-muted-foreground">
+                                                {exp.duration}
+                                            </p>
+                                        )}
+                                        {exp.description && (
+                                            <p className="text-sm leading-relaxed text-muted-foreground">
+                                                {exp.description}
+                                            </p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
+                                No experience entries on file. They will appear here when your resume includes work
+                                history.
+                            </p>
+                        )}
+                    </div>
+                ),
+            },
+            {
+                id: "education",
+                label: "Education",
+                icon: GraduationCap,
+                gradient: PROFILE_TAB_GLOW,
+                iconColor: "text-primary",
+                iconHoverClass: "group-hover:text-primary",
+                content: (
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <GraduationCap className="size-5 text-primary" aria-hidden />
+                            <h3 className="text-lg font-semibold text-foreground">Education</h3>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                            Degrees and institutions we parsed from your resume.
+                        </p>
+                        {profileData.education && profileData.education.length > 0 ? (
+                            <div className="space-y-4 pt-1">
+                                {profileData.education.map((edu: any, idx: number) => (
+                                    <div
+                                        key={idx}
+                                        className="relative border-l-2 border-primary/35 pb-4 pl-6 last:pb-0"
+                                    >
+                                        <div className="absolute -left-[9px] top-0 size-4 rounded-full border-4 border-background bg-primary" />
+                                        <p className="mb-1 text-base font-semibold text-foreground">{edu.degree}</p>
+                                        <p className="mb-1 text-sm text-muted-foreground">{edu.institution}</p>
+                                        {edu.year && (
+                                            <p className="text-xs font-medium text-muted-foreground">{edu.year}</p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
+                                No education entries yet. Add them by uploading a resume with your academic background.
+                            </p>
+                        )}
+                    </div>
+                ),
+            },
+        ],
+        [profileData.skills, profileData.experience, profileData.education],
+    );
 
     return (
         <div className="w-full space-y-8">
@@ -101,89 +246,14 @@ export function ProfileDataView({ profileData, onUploadAnother }: ProfileDataVie
                 </Card>
             )}
 
-            {/* Skills Section - Full Width */}
-            {profileData.skills && profileData.skills.length > 0 && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-xl">
-                            <Sparkles className="w-5 h-5 text-primary" />
-                            Skills & Expertise
-                        </CardTitle>
-                        <CardDescription>Your technical and professional capabilities</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex flex-wrap gap-3">
-                            {profileData.skills.map((skill: string, idx: number) => (
-                                <Badge
-                                    key={idx}
-                                    variant="secondary"
-                                    className="px-4 py-2 text-sm font-medium hover:bg-primary/20 transition-colors"
-                                >
-                                    {skill}
-                                </Badge>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
-
-            {/* Education & Experience - Side by Side */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Education */}
-                {profileData.education && profileData.education.length > 0 && (
-                    <Card className="h-fit">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <GraduationCap className="w-5 h-5 text-primary" />
-                                Education
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-4">
-                                {profileData.education.map((edu: any, idx: number) => (
-                                    <div key={idx} className="relative pl-6 pb-4 border-l-2 border-primary/30 last:pb-0">
-                                        <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-primary border-4 border-background"></div>
-                                        <p className="font-semibold text-base mb-1">{edu.degree}</p>
-                                        <p className="text-sm text-muted-foreground mb-1">{edu.institution}</p>
-                                        {edu.year && (
-                                            <p className="text-xs text-muted-foreground font-medium">{edu.year}</p>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* Experience */}
-                {profileData.experience && profileData.experience.length > 0 && (
-                    <Card className="h-fit">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Briefcase className="w-5 h-5 text-primary" />
-                                Experience
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-4">
-                                {profileData.experience.map((exp: any, idx: number) => (
-                                    <div key={idx} className="relative pl-6 pb-4 border-l-2 border-primary/30 last:pb-0">
-                                        <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-primary border-4 border-background"></div>
-                                        <p className="font-semibold text-base mb-1">{exp.role}</p>
-                                        <p className="text-sm text-muted-foreground mb-1">{exp.company}</p>
-                                        {exp.duration && (
-                                            <p className="text-xs text-muted-foreground font-medium mb-2">{exp.duration}</p>
-                                        )}
-                                        {exp.description && (
-                                            <p className="text-sm text-muted-foreground">{exp.description}</p>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-            </div>
+            {/* Skills, experience & education — tabbed */}
+            <AnimatedTabs
+                key={`${stats.skills}-${stats.education}-${stats.experience}`}
+                layoutGroupId="profile-overview-tabs"
+                defaultTab={defaultTabId}
+                tabs={profileTabs}
+                variant="glow"
+            />
 
             {/* Quick Actions - Modern Card Grid */}
             <div>

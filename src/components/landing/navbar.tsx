@@ -7,7 +7,13 @@ import { Sparkles, Menu, X, LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { logout } from "@/app/auth/actions";
 
-export function Navbar({ user }: { user: any }) {
+export function Navbar({
+  user,
+  onSignupClick,
+}: {
+  user: unknown;
+  onSignupClick?: () => void;
+}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -53,11 +59,21 @@ export function Navbar({ user }: { user: any }) {
                     Login
                   </Button>
                 </Link>
-                <Link href="/signup">
-                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-6">
+                {onSignupClick ? (
+                  <Button
+                    type="button"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-6"
+                    onClick={onSignupClick}
+                  >
                     Sign Up
                   </Button>
-                </Link>
+                ) : (
+                  <Link href="/signup">
+                    <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-6">
+                      Sign Up
+                    </Button>
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -111,11 +127,24 @@ export function Navbar({ user }: { user: any }) {
                     Login
                   </Button>
                 </Link>
-                <Link href="/signup" className="block w-full">
-                  <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium">
+                {onSignupClick ? (
+                  <Button
+                    type="button"
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onSignupClick();
+                    }}
+                  >
                     Sign Up
                   </Button>
-                </Link>
+                ) : (
+                  <Link href="/signup" className="block w-full">
+                    <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium">
+                      Sign Up
+                    </Button>
+                  </Link>
+                )}
               </div>
             )}
           </div>
