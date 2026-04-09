@@ -35,10 +35,13 @@ export function RoadmapShView({
   const [data, setData] = useState<RoadmapData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [flowchartHeight, setFlowchartHeight] = useState(600);
+  const [flowchartHeight, setFlowchartHeight] = useState(720);
 
   useEffect(() => {
-    const updateHeight = () => setFlowchartHeight(Math.max(500, window.innerHeight - 220));
+    const updateHeight = () => {
+      const reservedChrome = window.innerWidth < 768 ? 220 : 240;
+      setFlowchartHeight(Math.max(520, window.innerHeight - reservedChrome));
+    };
     updateHeight();
     window.addEventListener("resize", updateHeight);
     return () => window.removeEventListener("resize", updateHeight);
@@ -104,8 +107,8 @@ export function RoadmapShView({
   const progressPercent = roadmap.length ? (completedCount / roadmap.length) * 100 : 0;
 
   return (
-    <Card className="overflow-hidden border shadow-sm">
-      <CardHeader className="py-4 px-6 border-b bg-muted/20">
+    <Card className="overflow-hidden border shadow-sm h-full min-h-[calc(100dvh-9rem)]">
+      <CardHeader className="py-4 px-6 border-b bg-muted/20 shrink-0">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -142,7 +145,7 @@ export function RoadmapShView({
           </div>
         )}
       </CardHeader>
-      <CardContent className="p-4 sm:p-6">
+      <CardContent className="p-3 sm:p-4 flex-1 min-h-0">
         {useRoadmapSh ? (
           <RoadmapShFlowchart
             nodes={roadmap_sh_raw!.nodes}
@@ -153,18 +156,8 @@ export function RoadmapShView({
           <RoadmapFlowchart
             milestones={roadmap}
             onToggleComplete={handleToggleComplete}
-            height={Math.max(350, Math.min(500, roadmap.length * 120))}
+            height={flowchartHeight}
           />
-        )}
-        {roadmap_sh_url && (
-          <a
-            href={roadmap_sh_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-4 inline-flex text-sm text-muted-foreground hover:text-primary transition-colors"
-          >
-            View full roadmap on roadmap.sh →
-          </a>
         )}
       </CardContent>
     </Card>

@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { MenuBar, type GlowMenuItem } from "@/components/ui/glow-menu";
+import { GooeyFilter } from "@/components/ui/gooey-filter";
+import { useScreenSize } from "@/hooks/use-screen-size";
 
 export interface AnimatedTabItem {
   id: string;
@@ -22,7 +24,12 @@ interface AnimatedTabsProps {
   defaultTab?: string;
   className?: string;
   layoutGroupId?: string;
-  variant?: "default" | "glow";
+  /** default: pill row · glow: icon menu · gooey: merged blob tab bar + panel (dashboard profile) */
+  variant?: "default" | "glow" | "gooey";
+}
+
+function sanitizeFilterId(raw: string): string {
+  return raw.replace(/[^a-zA-Z0-9-_]/g, "-");
 }
 
 export function AnimatedTabs({
@@ -34,6 +41,13 @@ export function AnimatedTabs({
 }: AnimatedTabsProps) {
   const [activeTab, setActiveTab] = useState<string>(
     () => defaultTab ?? tabs[0]?.id ?? "",
+  );
+
+  const screenSize = useScreenSize();
+  const gooeyStrength = screenSize.lessThan("md") ? 8 : 14;
+  const gooeyFilterId = useMemo(
+    () => `${sanitizeFilterId(layoutGroupId)}-gooey-filter`,
+    [layoutGroupId],
   );
 
   if (!tabs?.length) return null;
@@ -51,6 +65,81 @@ export function AnimatedTabs({
     iconColor: t.iconColor ?? "text-primary",
     iconHoverClass: t.iconHoverClass,
   }));
+
+  if (variant === "gooey") {
+    return (
+      <div className={cn("flex w-full max-w-none flex-col gap-0", className)}>
+        <GooeyFilter id={gooeyFilterId} strength={gooeyStrength} />
+        <div className="relative w-full">
+          <div
+            className="overflow-hidden rounded-xl"
+            style={{ filter: `url(#${gooeyFilterId})` }}
+          >
+            <div className="flex w-full">
+              {tabs.map((tab) => (
+                <div key={tab.id} className="relative h-11 flex-1 md:h-12">
+                  {activeTab === tab.id && (
+                    <motion.div
+                      layoutId={`${layoutGroupId}-gooey-active`}
+                      className="absolute inset-0 bg-muted"
+                      transition={{
+                        type: "spring",
+                        bounce: 0,
+                        duration: 0.45,
+                      }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="min-h-[12rem] w-full bg-muted">
+              <AnimatePresence mode="popLayout">
+                <motion.div
+                  key={activeTab}
+                  role="tabpanel"
+                  id={`panel-${activeTab}`}
+                  aria-labelledby={`tab-${activeTab}`}
+                  initial={{ opacity: 0, y: 24, filter: "blur(10px)" }}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, y: -24, filter: "blur(10px)" }}
+                  transition={{ duration: 0.22, ease: "easeOut" }}
+                  className="p-5 text-card-foreground sm:p-6"
+                >
+                  {active?.content}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </div>
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 z-10 flex h-11 md:h-12"
+            role="tablist"
+            aria-label="Profile sections"
+          >
+            {tabs.map((tab) => {
+              const selected = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  id={`tab-${tab.id}`}
+                  aria-controls={`panel-${tab.id}`}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    "pointer-events-auto flex flex-1 items-center justify-center px-2 text-sm font-semibold outline-none transition-colors md:text-base",
+                    selected ? "text-foreground" : "text-muted-foreground hover:text-foreground/90",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

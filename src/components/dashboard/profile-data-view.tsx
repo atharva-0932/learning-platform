@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AnimatedTabs } from "@/components/ui/animated-tabs";
-import { CheckCircle, FileText, Sparkles, GraduationCap, Briefcase, Target, Mic, ArrowRight } from "lucide-react";
+import { CheckCircle, FileText, Sparkles, GraduationCap, Briefcase, Target } from "lucide-react";
 
 /** Matches `--primary` (#8b5cf6) + violet-400 for glow menu item halos */
 const PROFILE_TAB_GLOW =
@@ -252,65 +252,8 @@ export function ProfileDataView({ profileData, onUploadAnother }: ProfileDataVie
                 layoutGroupId="profile-overview-tabs"
                 defaultTab={defaultTabId}
                 tabs={profileTabs}
-                variant="glow"
+                variant="gooey"
             />
-
-            {/* Quick Actions - Modern Card Grid */}
-            <div>
-                <h3 className="text-xl font-semibold mb-4">Continue Your Journey</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <a href="/dashboard/career" className="group">
-                        <Card className="h-full border-2 hover:border-primary hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
-                            <CardContent className="p-6">
-                                <div className="flex flex-col items-center text-center gap-4">
-                                    <div className="p-4 bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl group-hover:scale-110 transition-transform">
-                                        <Target className="w-7 h-7 text-primary" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-semibold mb-1 group-hover:text-primary transition-colors">Career Paths</h4>
-                                        <p className="text-xs text-muted-foreground">Discover opportunities</p>
-                                    </div>
-                                    <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </a>
-
-                    <a href="/dashboard/resume" className="group">
-                        <Card className="h-full border-2 hover:border-primary hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
-                            <CardContent className="p-6">
-                                <div className="flex flex-col items-center text-center gap-4">
-                                    <div className="p-4 bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl group-hover:scale-110 transition-transform">
-                                        <FileText className="w-7 h-7 text-primary" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-semibold mb-1 group-hover:text-primary transition-colors">Resume Builder</h4>
-                                        <p className="text-xs text-muted-foreground">Optimize your resume</p>
-                                    </div>
-                                    <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </a>
-
-                    <a href="/dashboard/interview" className="group">
-                        <Card className="h-full border-2 hover:border-primary hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
-                            <CardContent className="p-6">
-                                <div className="flex flex-col items-center text-center gap-4">
-                                    <div className="p-4 bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl group-hover:scale-110 transition-transform">
-                                        <Mic className="w-7 h-7 text-primary" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-semibold mb-1 group-hover:text-primary transition-colors">Mock Interview</h4>
-                                        <p className="text-xs text-muted-foreground">Practice interviews</p>
-                                    </div>
-                                    <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </a>
-                </div>
-            </div>
         </div>
     );
 }

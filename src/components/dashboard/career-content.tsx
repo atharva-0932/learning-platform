@@ -47,7 +47,7 @@ export function CareerContent({ user, assessment, profile }: CareerContentProps)
   const targetRole = assessment?.target_role || profile?.goals?.target_role;
 
   return (
-    <div className="px-4 py-6 lg:px-8 lg:py-8 w-full max-w-[1600px] mx-auto space-y-10">
+    <div className="px-4 py-6 lg:px-8 lg:py-8 w-full max-w-none mx-auto space-y-10">
       {/* Header */}
       <header
         className={`transition-all duration-500 ${mounted ? "opacity-100" : "opacity-0"}`}
@@ -89,7 +89,7 @@ export function CareerContent({ user, assessment, profile }: CareerContentProps)
           {/* Roadmap - primary focus */}
           {targetRole && (
             <>
-              <section className="w-full min-h-[calc(100vh-14rem)]">
+              <section className="w-full min-h-[calc(100dvh-9rem)]">
                 <RoadmapShView userId={user.id} targetRole={targetRole} />
               </section>
               <section className="w-full max-w-7xl mx-auto">
