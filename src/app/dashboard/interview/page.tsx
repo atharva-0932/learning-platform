@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { InterviewClient } from "@/components/dashboard/interview-client";
+import { getRazorpaySubscribeUrl, hasPaymentProviderCustomer } from "@/lib/razorpay";
 
 export default async function InterviewPage() {
   const supabase = await createClient();
@@ -24,13 +25,12 @@ export default async function InterviewPage() {
   const hasSubscriptionFlag =
     profile?.is_subscribed === true || profile?.subscribed === true;
   const isSubscribed = Boolean(
-    hasSubscriptionFlag || hasPaidStatus || hasPaidPlan || profile?.stripe_customer_id
+    hasSubscriptionFlag ||
+      hasPaidStatus ||
+      hasPaidPlan ||
+      hasPaymentProviderCustomer(profile as Record<string, unknown> | null),
   );
-  const subscribeUrl =
-    process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK ||
-    process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_URL ||
-    process.env.NEXT_PUBLIC_STRIPE_BILLING_URL ||
-    "/pricing";
+  const subscribeUrl = getRazorpaySubscribeUrl("/pricing");
 
   return (
     <InterviewClient

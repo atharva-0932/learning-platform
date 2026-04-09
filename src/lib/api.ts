@@ -1,9 +1,23 @@
+function friendlySchemaError(message: string): string | null {
+  if (
+    message.includes("recruiter_email") ||
+    message.includes("last_follow_up_at") ||
+    (message.includes("PGRST204") && message.includes("schema cache"))
+  ) {
+    return "Database is missing follow-up columns. In Supabase → SQL Editor, run the SQL in supabase/migrations/004_add_recruiter_email_and_last_follow_up.sql, then try again.";
+  }
+  return null;
+}
+
 async function parseErrorResponse(response: Response, fallback: string): Promise<string> {
   const text = await response.text();
   try {
     const err = JSON.parse(text) as { error?: string };
-    return err.error || fallback;
+    const raw = err.error || fallback;
+    return friendlySchemaError(raw) ?? raw;
   } catch {
+    const hint = friendlySchemaError(text);
+    if (hint) return hint;
     return text || `${response.status} ${response.statusText}` || fallback;
   }
 }

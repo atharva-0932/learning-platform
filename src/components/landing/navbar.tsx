@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Menu, X, LogOut } from "lucide-react";
+import { Sparkles, Menu, X, LogOut, BadgeDollarSign } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { logout } from "@/app/auth/actions";
 
@@ -33,6 +33,15 @@ export function Navbar({
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-2">
             <ThemeToggle />
+            <Link href="/pricing">
+              <Button
+                variant="ghost"
+                className="text-muted-foreground hover:text-foreground hover:bg-muted gap-2 transition-colors"
+              >
+                <BadgeDollarSign className="h-4 w-4" aria-hidden />
+                Pricing
+              </Button>
+            </Link>
             {user ? (
               <div className="flex items-center gap-2">
                 <Link href="/dashboard">
@@ -81,6 +90,9 @@ export function Navbar({
           {/* Mobile menu button */}
           <div className="flex md:hidden items-center gap-2">
             <ThemeToggle />
+            <Link href="/pricing" className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" aria-label="Pricing">
+              <BadgeDollarSign className="w-5 h-5" />
+            </Link>
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -101,6 +113,15 @@ export function Navbar({
       {mobileMenuOpen && (
         <div className="md:hidden bg-background border-t border-border">
           <div className="px-4 py-4 space-y-3">
+            <Link href="/pricing" className="block w-full" onClick={() => setMobileMenuOpen(false)}>
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground hover:bg-muted"
+              >
+                <BadgeDollarSign className="h-4 w-4" aria-hidden />
+                Pricing
+              </Button>
+            </Link>
             {user ? (
               <div className="space-y-3 pt-2 border-t border-border">
                 <Link href="/dashboard" className="block w-full">

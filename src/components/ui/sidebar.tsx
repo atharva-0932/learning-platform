@@ -12,7 +12,7 @@ import {
   LayoutDashboard,
   LogOut,
   Mic,
-  Settings,
+  BadgeDollarSign,
   Sparkles,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -230,13 +230,17 @@ export function SessionNavBar({ user }: { user: User | null }) {
               </div>
               <div className="flex flex-col gap-1 border-t border-border p-2 pt-3">
                 <Link
-                  href="/dashboard"
-                  className="mt-auto flex min-h-10 w-full flex-row items-center rounded-lg px-2.5 py-2 text-[15px] font-medium leading-snug text-foreground transition-colors hover:bg-muted hover:text-primary"
+                  href="/pricing"
+                  className={cn(
+                    "mt-auto flex min-h-10 w-full flex-row items-center rounded-lg px-2.5 py-2 text-[15px] font-medium leading-snug text-foreground transition-colors hover:bg-muted hover:text-primary",
+                    navActive(pathname, "/pricing") &&
+                      "bg-muted font-medium text-primary shadow-sm ring-1 ring-border/60",
+                  )}
                 >
-                  <Settings className="size-5 shrink-0" aria-hidden />
+                  <BadgeDollarSign className="size-5 shrink-0" aria-hidden />
                   <motion.span variants={variants}>
                     {!isCollapsed && (
-                      <span className="ml-3">Settings</span>
+                      <span className="ml-3">Pricing</span>
                     )}
                   </motion.span>
                 </Link>
