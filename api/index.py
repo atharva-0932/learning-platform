@@ -454,6 +454,31 @@ def delete_job_application(application_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/job-openings', methods=['POST'])
+def job_openings():
+    """
+    Crew-style job discovery: LinkedIn / Naukri / Glassdoor via search index (SerpAPI or Google CSE),
+    ranked by user skills. Requires SERPAPI_KEY or GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_CX.
+    """
+    data = request.json or {}
+    target_role = data.get('target_role')
+    skills = data.get('skills') or []
+    if not target_role or not str(target_role).strip():
+        return jsonify({"error": "target_role is required"}), 400
+    if not isinstance(skills, list):
+        skills = []
+    skills = [str(s).strip() for s in skills if s and str(s).strip()]
+
+    try:
+        from api.utils.job_search_crew import run_job_search_with_crew
+        result = run_job_search_with_crew(str(target_role).strip(), skills)
+        return jsonify(result), 200
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/api/parse-resume', methods=['POST'])
 def parse_resume():
     if 'file' not in request.files:

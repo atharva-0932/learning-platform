@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { signup } from '@/app/auth/actions'
 import { Sparkles } from 'lucide-react'
 import { GoogleAuthButton } from '@/components/auth/google-auth-button'
+import { GitHubAuthButton } from '@/components/auth/github-auth-button'
 
 export default async function SignupPage({
     searchParams,
@@ -65,7 +66,10 @@ export default async function SignupPage({
                                 </span>
                             </div>
                         </div>
-                        <GoogleAuthButton text="Sign up with Google" />
+                        <div className="flex w-full flex-col gap-3">
+                            <GoogleAuthButton text="Sign up with Google" />
+                            <GitHubAuthButton text="Sign up with GitHub" />
+                        </div>
                         <div className="text-center text-sm">
                             Already have an account?{' '}
                             <Link href="/login" className="underline underline-offset-4 hover:text-primary">

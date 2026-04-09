@@ -103,6 +103,31 @@ export async function deleteJobApplication(userId: string, id: string) {
     }
 }
 
+export async function getJobOpeningsCrew(targetRole: string, skills: string[]) {
+    const response = await fetch("/api/job-openings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target_role: targetRole, skills }),
+    });
+    if (!response.ok) {
+        throw new Error(await parseErrorResponse(response, "Failed to fetch job openings"));
+    }
+    return response.json() as Promise<{
+        jobs: unknown[];
+        top_matches: Array<{
+            title?: string;
+            url?: string;
+            snippet?: string;
+            portal?: string;
+            match_score?: number;
+        }>;
+        summary?: string | null;
+        crew_output?: string | null;
+        config_hint?: string | null;
+        error?: string;
+    }>;
+}
+
 export async function getCareerAssessment(userId: string, targetRole: string, resumeText: string) {
     const response = await fetch("/api/career-assessment", {
         method: "POST",

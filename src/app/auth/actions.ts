@@ -49,9 +49,32 @@ export async function logout() {
 
 export async function signInWithGoogle() {
     const supabase = await createClient()
-    const origin = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const origin =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
     const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
+        options: {
+            redirectTo: `${origin}/auth/callback?next=/dashboard`,
+        },
+    })
+
+    if (error) {
+        redirect('/login?message=Could not authenticate user')
+    }
+
+    if (data.url) {
+        redirect(data.url)
+    }
+}
+
+export async function signInWithGitHub() {
+    const supabase = await createClient()
+    const origin =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+    const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
         options: {
             redirectTo: `${origin}/auth/callback?next=/dashboard`,
         },
