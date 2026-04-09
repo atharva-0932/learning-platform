@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Match next-themes: `dark:` must follow `.dark` on html, not only prefers-color-scheme */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   :root {
     --background: #ffffff;

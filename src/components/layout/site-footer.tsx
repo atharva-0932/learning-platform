@@ -6,9 +6,9 @@ import { Sparkles } from "lucide-react";
 export function SiteFooter() {
   return (
     <FooterOne
-      logo={<Sparkles className="h-8 w-8 text-white" aria-hidden />}
+      logo={<Sparkles className="h-5 w-5 shrink-0 sm:h-6 sm:w-6" aria-hidden />}
       brandName="SKILLSPHERE"
-      tagline="Empowering learners and professionals with AI-powered career guidance, resume intelligence, and interview practice to accelerate growth."
+      tagline="AI-powered career guidance, resume intelligence, and interview practice."
       copyright={`© ${new Date().getFullYear()} SKILLSPHERE. All rights reserved.`}
       legalLinks={[
         { href: "/dashboard", label: "Dashboard" },

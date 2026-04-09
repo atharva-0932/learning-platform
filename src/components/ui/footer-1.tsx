@@ -23,38 +23,40 @@ export function FooterOne({
   return (
     <footer
       className={cn(
-        "w-full bg-gradient-to-b from-[#1B004D] to-[#2E0A6F] text-white",
+        "relative w-full overflow-hidden border-t border-primary/20 bg-gradient-to-b from-violet-50/90 via-background to-slate-100/70 text-foreground",
+        "shadow-[inset_0_1px_0_0_rgba(139,92,246,0.08)]",
+        "dark:border-primary/25 dark:from-[#07060f] dark:via-[#0c0a14] dark:to-[#120d1f] dark:shadow-[inset_0_1px_0_0_rgba(167,139,250,0.08)]",
         className,
       )}
     >
-      <div className="mx-auto flex w-full max-w-7xl flex-col items-center px-6 py-16">
-        <div className="mb-6 flex items-center space-x-3">
-          {logo}
-          <span className="text-xl font-semibold tracking-wide">{brandName}</span>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(139,92,246,0.18),transparent_55%)] dark:bg-[radial-gradient(ellipse_100%_60%_at_50%_0%,rgba(139,92,246,0.12),transparent_50%)]"
+      />
+      <div className="relative mx-auto flex w-full max-w-7xl flex-col items-center px-4 py-5 sm:px-6">
+        <div className="mb-2 flex items-center gap-2">
+          <span className="text-primary [&_svg]:text-primary">{logo}</span>
+          <span className="text-base font-semibold tracking-wide text-foreground sm:text-lg">
+            {brandName}
+          </span>
         </div>
-        <p className="max-w-xl text-center text-sm font-normal leading-relaxed text-white/90">
+        <p className="max-w-xl text-center text-xs font-normal leading-snug text-muted-foreground sm:text-sm">
           {tagline}
         </p>
       </div>
 
-      <div className="border-t border-white/15">
-        <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-4 px-6 py-6 text-center text-sm font-normal">
-          <p className="text-white/90">{copyright}</p>
-          <div className="flex items-center gap-4 text-white/90">
-            {legalLinks.map((link, idx) => (
-              <div key={link.href} className="flex items-center gap-4">
-                <a
-                  href={link.href}
-                  className="font-medium transition-all hover:text-white"
-                >
-                  {link.label}
-                </a>
-                {idx < legalLinks.length - 1 && (
-                  <div className="h-4 w-px bg-white/30" />
-                )}
-              </div>
-            ))}
-          </div>
+      <div className="relative border-t border-border/80 dark:border-white/10">
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-center gap-x-3 gap-y-1.5 px-4 py-2.5 text-center text-xs text-muted-foreground sm:gap-x-4 sm:px-6 sm:text-sm">
+          <p>{copyright}</p>
+          {legalLinks.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className="font-medium text-foreground/90 transition-colors hover:text-primary dark:text-white/85 dark:hover:text-primary"
+            >
+              {link.label}
+            </a>
+          ))}
         </div>
       </div>
     </footer>

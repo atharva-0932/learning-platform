@@ -16,6 +16,7 @@ import {
   ChevronRight,
   X,
   Volume2,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UpdateTargetRoleForm } from "@/components/dashboard/update-target-role-form";
@@ -275,7 +276,17 @@ function ScoreBar({
   );
 }
 
-export function InterviewClient({ userId, targetRole }: { userId: string; targetRole: string | null }) {
+export function InterviewClient({
+  userId,
+  targetRole,
+  isSubscribed,
+  subscribeUrl,
+}: {
+  userId: string;
+  targetRole: string | null;
+  isSubscribed: boolean;
+  subscribeUrl: string;
+}) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [isSessionActive, setIsSessionActive] = useState(false);
@@ -627,83 +638,129 @@ export function InterviewClient({ userId, targetRole }: { userId: string; target
             </div>
 
             {/* Score Bars */}
-            <div className="bg-muted rounded-2xl p-6 mb-6">
-              <h3 className="text-lg font-semibold text-foreground mb-6">
-                Performance Metrics
-              </h3>
-              <div className="space-y-6">
-                <ScoreBar
-                  label="Confidence Score"
-                  value={sessionResults.confidence}
-                  color="bg-violet-500"
-                />
-                <ScoreBar
-                  label="Technical Accuracy"
-                  value={sessionResults.technicalAccuracy}
-                  color="bg-emerald-500"
-                />
-                <ScoreBar
-                  label="Clarity & Communication"
-                  value={sessionResults.clarity}
-                  color="bg-blue-500"
-                />
+            {isSubscribed ? (
+              <div className="bg-muted rounded-2xl p-6 mb-6">
+                <h3 className="text-lg font-semibold text-foreground mb-6">
+                  Performance Metrics
+                </h3>
+                <div className="space-y-6">
+                  <ScoreBar
+                    label="Confidence Score"
+                    value={sessionResults.confidence}
+                    color="bg-violet-500"
+                  />
+                  <ScoreBar
+                    label="Technical Accuracy"
+                    value={sessionResults.technicalAccuracy}
+                    color="bg-emerald-500"
+                  />
+                  <ScoreBar
+                    label="Clarity & Communication"
+                    value={sessionResults.clarity}
+                    color="bg-blue-500"
+                  />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-muted rounded-2xl p-6 mb-6">
+                <h3 className="text-lg font-semibold text-foreground mb-3">
+                  Interview Completed
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Great work! Detailed skill analysis, scoring trends, and actionable feedback are
+                  available for subscribers.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-border bg-card p-4 text-center">
+                    <p className="text-xl font-bold text-foreground">
+                      {Math.floor(callDuration / 60)}:{String(callDuration % 60).padStart(2, "0")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Session duration</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card p-4 text-center">
+                    <p className="text-xl font-bold text-foreground">
+                      {transcript.filter((m) => m.speaker === "ai").length}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Questions asked</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Overall Score */}
-            <div className="flex items-center justify-center mb-6">
-              <div className="text-center">
-                <div className="inline-flex items-center justify-center w-32 h-32 rounded-full bg-primary mb-3">
-                  <span className="text-4xl font-bold text-primary-foreground">
-                    {Math.round(
-                      (sessionResults.confidence +
-                        sessionResults.technicalAccuracy +
-                        sessionResults.clarity) /
-                        3
-                    )}
-                  </span>
+            {isSubscribed && (
+              <div className="flex items-center justify-center mb-6">
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center w-32 h-32 rounded-full bg-primary mb-3">
+                    <span className="text-4xl font-bold text-primary-foreground">
+                      {Math.round(
+                        (sessionResults.confidence +
+                          sessionResults.technicalAccuracy +
+                          sessionResults.clarity) /
+                          3
+                      )}
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground">Overall Score</p>
                 </div>
-                <p className="text-muted-foreground">Overall Score</p>
               </div>
-            </div>
+            )}
 
             {/* Mistakes to Fix */}
-            <div className="bg-muted rounded-2xl p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <AlertCircle className="w-5 h-5 text-amber-500" />
-                <h3 className="text-lg font-semibold text-foreground">
-                  Areas for Improvement
-                </h3>
-              </div>
-              <div className="space-y-4">
-                {sessionResults.mistakes.map((mistake, index) => (
-                  <div
-                    key={index}
-                    className="p-4 bg-card rounded-xl border border-border"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-                        <ChevronRight className="w-4 h-4 text-amber-500" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-medium text-foreground">
-                            {mistake.issue}
-                          </span>
-                          <span className="px-2 py-0.5 text-xs rounded-full bg-secondary text-secondary-foreground">
-                            {mistake.type}
-                          </span>
+            {isSubscribed ? (
+              <div className="bg-muted rounded-2xl p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <AlertCircle className="w-5 h-5 text-amber-500" />
+                  <h3 className="text-lg font-semibold text-foreground">
+                    Areas for Improvement
+                  </h3>
+                </div>
+                <div className="space-y-4">
+                  {sessionResults.mistakes.map((mistake, index) => (
+                    <div
+                      key={index}
+                      className="p-4 bg-card rounded-xl border border-border"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                          <ChevronRight className="w-4 h-4 text-amber-500" />
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          <CheckCircle2 className="w-3 h-3 inline mr-1 text-emerald-500" />
-                          {mistake.suggestion}
-                        </p>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium text-foreground">
+                              {mistake.issue}
+                            </span>
+                            <span className="px-2 py-0.5 text-xs rounded-full bg-secondary text-secondary-foreground">
+                              {mistake.type}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            <CheckCircle2 className="w-3 h-3 inline mr-1 text-emerald-500" />
+                            {mistake.suggestion}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-muted rounded-2xl p-6 border border-dashed border-primary/40">
+                <div className="flex items-center gap-2 mb-3">
+                  <Lock className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-semibold text-foreground">
+                    Detailed Report Locked
+                  </h3>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Subscribe to unlock detailed scoring, mistakes analysis, and personalized
+                  improvement suggestions after every interview.
+                </p>
+                <Button asChild className="w-full sm:w-auto">
+                  <a href={subscribeUrl}>Subscribe to Unlock Report</a>
+                </Button>
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex gap-4 mt-6">
