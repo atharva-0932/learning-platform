@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, FileText, Sparkles } from "lucide-react";
+import { Loader2, FileText, Sparkles, Radio } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { ResumeBuilder } from "@/components/dashboard/resume-builder";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 export default function ResumePage() {
   const [user, setUser] = useState<any>(null);
@@ -19,16 +17,12 @@ export default function ResumePage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUser(user);
-
-        // Fetch profile with experience, education, skills
         const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*, user_skills(proficiency, skills(name))')
-          .eq('user_id', user.id)
+          .from("profiles")
+          .select("*, user_skills(proficiency, skills(name))")
+          .eq("user_id", user.id)
           .single();
-
         if (profileData) {
-          // Flatten skills
           const flattenedSkills = profileData.user_skills?.map((s: any) => s.skills?.name) || [];
           setProfile({ ...profileData, skills: flattenedSkills });
         }
@@ -56,22 +50,45 @@ export default function ResumePage() {
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-background">
-      {/* Mini Studio Header */}
-      <header className="flex items-center justify-between px-6 py-3 border-b bg-background/80 backdrop-blur-md z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-            <FileText className="w-4 h-4" />
+    <div className="flex h-screen flex-col overflow-hidden bg-background">
+      {/* Vibrant studio header */}
+      <header className="relative z-10 flex items-center justify-between border-b border-border/60 bg-gradient-to-r from-[#0a0a0f] via-primary/10 to-[#0a0a0f] px-6 py-4 backdrop-blur-md">
+        {/* Subtle glow */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(ellipse 60% 100% at 30% 50%, rgba(139,92,246,0.12) 0%, transparent 70%)" }}
+          aria-hidden
+        />
+
+        <div className="relative flex items-center gap-3">
+          {/* Icon box with amber glow */}
+          <div className="glow-amber flex h-9 w-9 items-center justify-center rounded-xl bg-[#f59e0b]/15">
+            <FileText className="h-5 w-5 text-[#f59e0b]" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight">Resume Studio</h1>
+          <div>
+            <h1 className="text-lg font-extrabold tracking-tight text-foreground">
+              Resume Studio
+            </h1>
+            <p className="text-[10px] text-muted-foreground">Build · Customise · Export</p>
+          </div>
         </div>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground italic">
-          <Sparkles className="w-4 h-4 text-primary animate-pulse" />
-          AI-Powered Professional Design
+
+        {/* Centre: live indicator */}
+        <div className="relative flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/8 px-3 py-1.5">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+          </span>
+          <span className="text-xs font-medium text-emerald-400">Live preview synced</span>
+        </div>
+
+        {/* Right: AI badge */}
+        <div className="relative flex items-center gap-2 text-sm text-muted-foreground">
+          <Sparkles className="h-4 w-4 animate-pulse text-[#f59e0b]" />
+          <span className="hidden text-xs sm:inline">AI-Powered</span>
         </div>
       </header>
 
-      {/* Main Studio Area */}
       <main className="flex-1 overflow-hidden">
         <ResumeBuilder user={user} initialProfile={profile} />
       </main>

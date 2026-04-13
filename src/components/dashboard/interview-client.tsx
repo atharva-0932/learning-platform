@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import Vapi from "@vapi-ai/web";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import {
   Mic,
   MicOff,
@@ -17,6 +18,10 @@ import {
   X,
   Volume2,
   Lock,
+  Star,
+  Lightbulb,
+  Brain,
+  Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UpdateTargetRoleForm } from "@/components/dashboard/update-target-role-form";
@@ -252,29 +257,54 @@ function ScoreBar({
   value: number;
   color: string;
 }) {
-  const [animatedValue, setAnimatedValue] = useState(0);
+  const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
-    const timer = setTimeout(() => setAnimatedValue(value), 100);
-    return () => clearTimeout(timer);
+    const start = Date.now();
+    const duration = 1200;
+    const tick = () => {
+      const p = Math.min((Date.now() - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setDisplayValue(Math.round(eased * value));
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    const t = setTimeout(() => requestAnimationFrame(tick), 100);
+    return () => clearTimeout(t);
   }, [value]);
 
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center">
         <span className="text-sm font-medium text-foreground">{label}</span>
-        <span className="text-sm font-bold text-foreground">
-          {animatedValue}%
-        </span>
+        <span className="text-sm font-bold text-foreground">{displayValue}%</span>
       </div>
-      <div className="h-3 bg-muted rounded-full overflow-hidden">
-        <div
-          className={`h-full ${color} rounded-full transition-all duration-1000 ease-out`}
-          style={{ width: `${animatedValue}%` }}
+      <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+        <motion.div
+          className={`h-full ${color} rounded-full`}
+          initial={{ width: 0 }}
+          animate={{ width: `${value}%` }}
+          transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
         />
       </div>
     </div>
   );
+}
+
+function CountUpScore({ target }: { target: number }) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    const start = Date.now();
+    const duration = 1600;
+    const tick = () => {
+      const p = Math.min((Date.now() - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setVal(Math.round(eased * target));
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    const t = setTimeout(() => requestAnimationFrame(tick), 200);
+    return () => clearTimeout(t);
+  }, [target]);
+  return <>{val}</>;
 }
 
 export function InterviewClient({
@@ -405,97 +435,150 @@ export function InterviewClient({
     setIsMuted(next);
   }, [isSessionActive, isMuted]);
 
+  const overallScore = Math.round(
+    (sessionResults.confidence + sessionResults.technicalAccuracy + sessionResults.clarity) / 3
+  );
+
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
-      <div className="relative z-10 p-6 lg:p-8">
-        {/* Header */}
-        <div
-          className={`mb-8 transition-all duration-500 ${
-            mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-          }`}
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <Mic className="w-5 h-5 text-primary-foreground" />
+    <div
+      className="min-h-screen relative overflow-hidden bg-background"
+      style={{
+        backgroundImage: "radial-gradient(rgba(139,92,246,0.12) 1px, transparent 1px)",
+        backgroundSize: "24px 24px",
+      }}
+    >
+      {/* Radial fade to make dot grid subtle at edges */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: "radial-gradient(ellipse 80% 60% at 50% 30%, transparent 40%, hsl(var(--background)) 100%)",
+        }}
+        aria-hidden
+      />
+
+      {/* Full-width page header strip */}
+      <div className="relative z-10 border-b border-border/60 bg-card/80 px-6 py-4 backdrop-blur-sm lg:px-10">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20">
+              <Mic className="h-5 w-5 text-primary" />
             </div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-              Job Ready
-            </h1>
+            <div>
+              <h1 className="text-xl font-extrabold tracking-tight text-foreground">
+                Job Ready
+              </h1>
+              <p className="text-xs text-muted-foreground">AI-powered mock interview</p>
+            </div>
           </div>
-          <p className="text-muted-foreground">
-            Practice with AI and get real-time feedback
-          </p>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            {targetRole ? (
-              <UpdateTargetRoleForm
-                userId={userId}
-                currentRole={targetRole}
-                onSuccess={() => router.refresh()}
+
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Target role badge */}
+            {targetRole && (
+              <span className="rounded-full border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-3 py-1 text-xs font-semibold text-[#f59e0b]">
+                {targetRole}
+              </span>
+            )}
+
+            {/* Session state dot */}
+            <div className="flex items-center gap-1.5 rounded-full border border-border/60 bg-card px-3 py-1.5">
+              <span
+                className={`h-2 w-2 rounded-full transition-colors ${
+                  isSessionActive
+                    ? speakerMode === "ai"
+                      ? "animate-pulse bg-violet-500"
+                      : speakerMode === "user"
+                        ? "animate-pulse bg-emerald-500"
+                        : "bg-muted-foreground"
+                    : "bg-muted-foreground"
+                }`}
               />
+              <span className="text-xs text-muted-foreground">
+                {isSessionActive
+                  ? speakerMode === "ai"
+                    ? "AI speaking"
+                    : speakerMode === "user"
+                      ? "You speaking"
+                      : "Waiting"
+                  : "Idle"}
+              </span>
+            </div>
+
+            {targetRole ? (
+              <UpdateTargetRoleForm userId={userId} currentRole={targetRole} onSuccess={() => router.refresh()} />
             ) : (
-              <div className="flex items-center gap-3">
-                <UpdateTargetRoleForm
-                  userId={userId}
-                  currentRole=""
-                  onSuccess={() => router.refresh()}
-                />
-                <span className="text-muted-foreground text-sm">or</span>
-                <Link href="/dashboard" className="text-sm text-primary hover:underline font-medium">
-                  Upload your resume
+              <div className="flex items-center gap-2">
+                <UpdateTargetRoleForm userId={userId} currentRole="" onSuccess={() => router.refresh()} />
+                <span className="text-xs text-muted-foreground">or</span>
+                <Link href="/dashboard" className="text-xs font-medium text-primary hover:underline">
+                  Upload resume
                 </Link>
               </div>
             )}
           </div>
-          {error && (
-            <div className="mt-4 p-4 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm">
-              {error}
-            </div>
-          )}
         </div>
 
-        {/* Main Content */}
-        <div
-          className={`grid grid-cols-1 lg:grid-cols-3 gap-6 transition-all duration-500 delay-100 ${
-            mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-          }`}
-        >
+        {error && (
+          <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+      </div>
+
+      {/* Main Content */}
+      <div
+        className={`relative z-10 p-6 lg:p-8 transition-all duration-500 ${
+          mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+        }`}
+      >
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Center - Voice Orb */}
           <div className="lg:col-span-2">
-            <div className="bg-card border border-border rounded-3xl p-8 flex flex-col items-center shadow-sm">
-              {/* Status Indicator */}
-              <div className="flex items-center gap-2 mb-6">
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    isSessionActive
-                      ? speakerMode === "ai"
-                        ? "bg-primary animate-pulse"
-                        : speakerMode === "user"
-                          ? "bg-emerald-500 animate-pulse"
-                          : "bg-muted-foreground"
-                      : "bg-muted-foreground"
-                  }`}
-                />
-                <span className="text-sm text-muted-foreground">
-                  {isSessionActive
-                    ? speakerMode === "ai"
-                      ? "AI is speaking..."
-                      : speakerMode === "user"
-                        ? "You are speaking..."
-                        : "Waiting..."
-                    : "Ready to start"}
-                </span>
-              </div>
-
+            <div className="rounded-3xl border border-border/60 bg-card/80 p-8 shadow-sm backdrop-blur-sm flex flex-col items-center">
               {/* Voice Orb */}
-              <div className="mb-8">
+              <div className="mb-6">
                 <VoiceOrb isActive={isSessionActive} speakerMode={speakerMode} />
               </div>
 
-              {/* Interview Type Indicator */}
-              {(isSessionActive || targetRole) && (
-                <div className="mb-6 px-4 py-2 bg-muted rounded-full border border-border">
+              {/* Pre-session warm-up card */}
+              {!isSessionActive && transcript.length === 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                  className="mb-6 w-full max-w-md rounded-2xl border border-border/50 bg-muted/30 p-5"
+                >
+                  <p className="mb-3 text-center text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                    Before you start
+                  </p>
+                  <div className="space-y-3">
+                    {[
+                      { icon: Mic, text: "Speak clearly and at a natural pace", color: "text-violet-400", bg: "bg-violet-500/10" },
+                      { icon: Brain, text: "Use the STAR method for behavioural questions", color: "text-sky-400", bg: "bg-sky-500/10" },
+                      { icon: Lightbulb, text: "It's OK to take a moment before answering", color: "text-[#f59e0b]", bg: "bg-[#f59e0b]/10" },
+                    ].map((tip, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.1 + i * 0.08 }}
+                        className="flex items-center gap-3"
+                      >
+                        <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${tip.bg}`}>
+                          <tip.icon className={`h-3.5 w-3.5 ${tip.color}`} />
+                        </div>
+                        <span className="text-sm text-muted-foreground">{tip.text}</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Interview type badge */}
+              {(isSessionActive || targetRole) && transcript.length > 0 && (
+                <div className="mb-5 rounded-full border border-border bg-muted px-4 py-1.5">
                   <span className="text-sm text-foreground">
-                    Interview for: {displayRole}
+                    <Target className="mr-1.5 inline h-3.5 w-3.5 text-primary" />
+                    {displayRole}
                   </span>
                 </div>
               )}
@@ -503,42 +586,42 @@ export function InterviewClient({
               {/* Control Buttons */}
               <div className="flex items-center gap-4">
                 {!isSessionActive ? (
-                  <Button
-                    onClick={handleStartSession}
-                    size="lg"
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-6 text-lg rounded-2xl shadow-lg transition-all hover:scale-105"
-                  >
-                    <Phone className="w-5 h-5 mr-2" />
-                    Start Interview
-                  </Button>
+                  <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                    <button
+                      onClick={handleStartSession}
+                      className="relative inline-flex items-center gap-2 rounded-full bg-primary px-12 py-4 text-lg font-bold text-primary-foreground shadow-lg shadow-primary/30 transition-all"
+                    >
+                      {/* Pulse ring */}
+                      <span className="absolute inset-0 animate-ping rounded-full bg-primary opacity-20" />
+                      <Phone className="h-5 w-5" />
+                      Start Interview
+                    </button>
+                  </motion.div>
                 ) : (
-                  <>
-                    <Button
-                      onClick={handleToggleMute}
-                      variant="outline"
-                      size="lg"
-                      className={`rounded-full w-14 h-14 p-0 border-border bg-transparent ${
-                        isMuted
-                          ? "bg-destructive/20 border-destructive/50 text-destructive"
-                          : "bg-muted text-muted-foreground hover:bg-muted/80"
-                      }`}
-                    >
-                      {isMuted ? (
-                        <MicOff className="w-5 h-5" />
-                      ) : (
-                        <Mic className="w-5 h-5" />
-                      )}
-                    </Button>
+                  <div className="flex items-center gap-3">
+                    <motion.div whileTap={{ scale: 0.92 }}>
+                      <button
+                        onClick={handleToggleMute}
+                        className={`flex h-14 w-14 items-center justify-center rounded-full border-2 font-semibold transition-all ${
+                          isMuted
+                            ? "border-[#f59e0b]/60 bg-[#f59e0b]/15 text-[#f59e0b]"
+                            : "border-border bg-muted text-muted-foreground hover:bg-muted/70"
+                        }`}
+                      >
+                        {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                      </button>
+                    </motion.div>
 
-                    <Button
-                      onClick={handleEndSession}
-                      size="lg"
-                      className="bg-destructive hover:bg-destructive/90 text-destructive-foreground px-8 py-6 text-lg rounded-2xl"
-                    >
-                      <PhoneOff className="w-5 h-5 mr-2" />
-                      End Session
-                    </Button>
-                  </>
+                    <motion.div whileTap={{ scale: 0.96 }}>
+                      <button
+                        onClick={handleEndSession}
+                        className="flex items-center gap-2 rounded-full bg-destructive px-8 py-3.5 text-base font-bold text-destructive-foreground shadow-lg shadow-destructive/20 transition-all hover:bg-destructive/90"
+                      >
+                        <PhoneOff className="h-5 w-5" />
+                        End Session
+                      </button>
+                    </motion.div>
+                  </div>
                 )}
               </div>
             </div>
@@ -546,58 +629,58 @@ export function InterviewClient({
 
           {/* Right Side - Live Transcription */}
           <div className="lg:col-span-1">
-            <div className="bg-card border border-border rounded-3xl p-6 h-full flex flex-col shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <MessageSquare className="w-5 h-5 text-primary" />
+            <div className="rounded-3xl border border-border/60 bg-card/80 p-6 shadow-sm backdrop-blur-sm flex h-full flex-col">
+              <div className="mb-4 flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                  <MessageSquare className="h-4 w-4 text-primary" />
+                </div>
                 <h2 className="font-semibold text-foreground">Live Transcription</h2>
+                {isSessionActive && (
+                  <span className="ml-auto flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+                )}
               </div>
 
               <div
                 ref={transcriptRef}
-                className="flex-1 overflow-y-auto space-y-4 min-h-[300px] max-h-[400px] pr-2"
+                className="flex-1 overflow-y-auto space-y-3 min-h-[300px] max-h-[400px] pr-2"
               >
                 {!isSessionActive && transcript.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                  <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground">
                     Transcript will appear here when the call starts...
                   </div>
                 ) : (
                   transcript.map((msg, index) => (
                     <div
                       key={index}
-                      className={`p-3 rounded-2xl transition-all duration-300 ${
+                      className={`rounded-2xl border p-3 transition-all duration-300 ${
                         msg.speaker === "ai"
-                          ? "bg-primary/10 border border-primary/20"
-                          : "bg-emerald-500/10 border border-emerald-500/20"
+                          ? "border-primary/20 bg-primary/10"
+                          : "border-emerald-500/20 bg-emerald-500/10"
                       }`}
                     >
-                      <div className="flex items-center gap-2 mb-1">
-                        <span
-                          className={`text-xs font-medium ${
-                            msg.speaker === "ai"
-                              ? "text-primary"
-                              : "text-emerald-600 dark:text-emerald-400"
-                          }`}
-                        >
-                          {msg.speaker === "ai" ? "AI Interviewer" : "You"}
-                        </span>
-                      </div>
+                      <span
+                        className={`mb-1 block text-xs font-semibold ${
+                          msg.speaker === "ai" ? "text-primary" : "text-emerald-400"
+                        }`}
+                      >
+                        {msg.speaker === "ai" ? "AI Interviewer" : "You"}
+                      </span>
                       <p className="text-sm text-muted-foreground">{msg.text}</p>
                     </div>
                   ))
                 )}
               </div>
 
-              {/* Quick Stats */}
               {isSessionActive && (
-                <div className="mt-4 pt-4 border-t border-border">
+                <div className="mt-4 border-t border-border pt-4">
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="text-center p-3 bg-muted rounded-xl">
+                    <div className="rounded-xl bg-muted p-3 text-center">
                       <p className="text-lg font-bold text-foreground">
                         {Math.floor(callDuration / 60)}:{String(callDuration % 60).padStart(2, "0")}
                       </p>
                       <p className="text-xs text-muted-foreground">Duration</p>
                     </div>
-                    <div className="text-center p-3 bg-muted rounded-xl">
+                    <div className="rounded-xl bg-muted p-3 text-center">
                       <p className="text-lg font-bold text-foreground">
                         {transcript.filter((m) => m.speaker === "ai").length}
                       </p>
@@ -619,179 +702,148 @@ export function InterviewClient({
 
       {/* Results Overlay */}
       {showResults && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto m-4 bg-card border border-border rounded-3xl p-8 animate-in zoom-in-95 duration-300 shadow-xl">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.94, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            className="m-4 w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl border border-border bg-card p-8 shadow-2xl"
+          >
             {/* Header */}
-            <div className="flex items-center justify-between mb-8">
+            <div className="mb-8 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center">
-                  <BarChart3 className="w-6 h-6 text-primary-foreground" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary">
+                  <BarChart3 className="h-6 w-6 text-primary-foreground" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-foreground">
-                    Session Summary
-                  </h2>
-                  <p className="text-muted-foreground">
-                    {displayRole} Interview
-                  </p>
+                  <h2 className="text-2xl font-extrabold text-foreground">Session Summary</h2>
+                  <p className="text-sm text-muted-foreground">{displayRole} Interview</p>
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowResults(false)}
-                className="text-muted-foreground hover:text-foreground hover:bg-muted"
-              >
-                <X className="w-5 h-5" />
+              <Button variant="ghost" size="icon" onClick={() => setShowResults(false)}>
+                <X className="h-5 w-5" />
               </Button>
             </div>
 
-            {/* Score Bars */}
             {isSubscribed ? (
-              <div className="bg-muted rounded-2xl p-6 mb-6">
-                <h3 className="text-lg font-semibold text-foreground mb-6">
-                  Performance Metrics
-                </h3>
-                <div className="space-y-6">
-                  <ScoreBar
-                    label="Confidence Score"
-                    value={sessionResults.confidence}
-                    color="bg-violet-500"
-                  />
-                  <ScoreBar
-                    label="Technical Accuracy"
-                    value={sessionResults.technicalAccuracy}
-                    color="bg-emerald-500"
-                  />
-                  <ScoreBar
-                    label="Clarity & Communication"
-                    value={sessionResults.clarity}
-                    color="bg-blue-500"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="bg-muted rounded-2xl p-6 mb-6">
-                <h3 className="text-lg font-semibold text-foreground mb-3">
-                  Interview Completed
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Great work! Detailed skill analysis, scoring trends, and actionable feedback are
-                  available for subscribers.
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-border bg-card p-4 text-center">
-                    <p className="text-xl font-bold text-foreground">
-                      {Math.floor(callDuration / 60)}:{String(callDuration % 60).padStart(2, "0")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Session duration</p>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card p-4 text-center">
-                    <p className="text-xl font-bold text-foreground">
-                      {transcript.filter((m) => m.speaker === "ai").length}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Questions asked</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Overall Score */}
-            {isSubscribed && (
-              <div className="flex items-center justify-center mb-6">
-                <div className="text-center">
-                  <div className="inline-flex items-center justify-center w-32 h-32 rounded-full bg-primary mb-3">
-                    <span className="text-4xl font-bold text-primary-foreground">
-                      {Math.round(
-                        (sessionResults.confidence +
-                          sessionResults.technicalAccuracy +
-                          sessionResults.clarity) /
-                          3
-                      )}
+              <>
+                {/* Overall score count-up */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                  className="mb-8 flex flex-col items-center"
+                >
+                  <div className="relative flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br from-primary to-violet-700 shadow-xl shadow-primary/30">
+                    <span className="text-4xl font-extrabold text-primary-foreground">
+                      <CountUpScore target={overallScore} />
                     </span>
                   </div>
-                  <p className="text-muted-foreground">Overall Score</p>
-                </div>
-              </div>
-            )}
+                  <p className="mt-2 text-sm text-muted-foreground">Overall Score</p>
+                </motion.div>
 
-            {/* Mistakes to Fix */}
-            {isSubscribed ? (
-              <div className="bg-muted rounded-2xl p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <AlertCircle className="w-5 h-5 text-amber-500" />
-                  <h3 className="text-lg font-semibold text-foreground">
-                    Areas for Improvement
-                  </h3>
+                {/* Score Bars */}
+                <div className="mb-6 rounded-2xl bg-muted p-6">
+                  <h3 className="mb-5 text-base font-semibold text-foreground">Performance Metrics</h3>
+                  <div className="space-y-5">
+                    <ScoreBar label="Confidence Score" value={sessionResults.confidence} color="bg-violet-500" />
+                    <ScoreBar label="Technical Accuracy" value={sessionResults.technicalAccuracy} color="bg-emerald-500" />
+                    <ScoreBar label="Clarity & Communication" value={sessionResults.clarity} color="bg-sky-500" />
+                  </div>
                 </div>
-                <div className="space-y-4">
-                  {sessionResults.mistakes.map((mistake, index) => (
-                    <div
-                      key={index}
-                      className="p-4 bg-card rounded-xl border border-border"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-                          <ChevronRight className="w-4 h-4 text-amber-500" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-medium text-foreground">
-                              {mistake.issue}
-                            </span>
-                            <span className="px-2 py-0.5 text-xs rounded-full bg-secondary text-secondary-foreground">
-                              {mistake.type}
-                            </span>
+
+                {/* Improvements */}
+                <div className="rounded-2xl bg-muted p-6">
+                  <div className="mb-4 flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-[#f59e0b]" />
+                    <h3 className="text-base font-semibold text-foreground">Areas for Improvement</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {sessionResults.mistakes.map((mistake, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 + index * 0.08 }}
+                        className="rounded-xl border border-border bg-card p-4"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-[#f59e0b]/15">
+                            <ChevronRight className="h-4 w-4 text-[#f59e0b]" />
                           </div>
-                          <p className="text-sm text-muted-foreground">
-                            <CheckCircle2 className="w-3 h-3 inline mr-1 text-emerald-500" />
-                            {mistake.suggestion}
-                          </p>
+                          <div className="flex-1">
+                            <div className="mb-1 flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-medium text-foreground">{mistake.issue}</span>
+                              <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
+                                {mistake.type}
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              <CheckCircle2 className="mr-1 inline h-3 w-3 text-emerald-500" />
+                              {mistake.suggestion}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              </>
             ) : (
-              <div className="bg-muted rounded-2xl p-6 border border-dashed border-primary/40">
-                <div className="flex items-center gap-2 mb-3">
-                  <Lock className="w-5 h-5 text-primary" />
-                  <h3 className="text-lg font-semibold text-foreground">
-                    Detailed Report Locked
-                  </h3>
+              <>
+                <div className="mb-6 rounded-2xl bg-muted p-6">
+                  <h3 className="mb-2 text-base font-semibold text-foreground">Interview Completed!</h3>
+                  <p className="mb-4 text-sm text-muted-foreground">
+                    Great work! Detailed skill analysis, scoring trends, and actionable feedback are available for subscribers.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl border border-border bg-card p-4 text-center">
+                      <p className="text-xl font-bold text-foreground">
+                        {Math.floor(callDuration / 60)}:{String(callDuration % 60).padStart(2, "0")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Session duration</p>
+                    </div>
+                    <div className="rounded-xl border border-border bg-card p-4 text-center">
+                      <p className="text-xl font-bold text-foreground">
+                        {transcript.filter((m) => m.speaker === "ai").length}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Questions asked</p>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Subscribe to unlock detailed scoring, mistakes analysis, and personalized
-                  improvement suggestions after every interview.
-                </p>
-                <Button asChild className="w-full sm:w-auto">
-                  <Link href={subscribeUrl}>Subscribe to Unlock Report</Link>
-                </Button>
-              </div>
+                <div className="rounded-2xl border border-dashed border-primary/40 bg-muted p-6">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Lock className="h-5 w-5 text-primary" />
+                    <h3 className="text-base font-semibold text-foreground">Detailed Report Locked</h3>
+                  </div>
+                  <p className="mb-4 text-sm text-muted-foreground">
+                    Subscribe to unlock detailed scoring, mistakes analysis, and personalised improvement suggestions after every interview.
+                  </p>
+                  <Button asChild className="w-full sm:w-auto">
+                    <Link href={subscribeUrl}>Subscribe to Unlock Report</Link>
+                  </Button>
+                </div>
+              </>
             )}
 
             {/* Actions */}
-            <div className="flex gap-4 mt-6">
+            <div className="mt-6 flex gap-4">
               <Button
-                onClick={() => {
-                  setShowResults(false);
-                  handleStartSession();
-                }}
-                className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground py-6 rounded-xl"
+                onClick={() => { setShowResults(false); handleStartSession(); }}
+                className="flex-1 rounded-xl py-6"
               >
                 Try Again
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowResults(false)}
-                className="flex-1 border-border bg-transparent text-foreground hover:bg-muted py-6 rounded-xl"
-              >
+              <Button variant="outline" onClick={() => setShowResults(false)} className="flex-1 rounded-xl py-6">
                 Close
               </Button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
     </div>
   );

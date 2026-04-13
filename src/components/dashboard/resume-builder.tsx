@@ -303,9 +303,11 @@ export function ResumeBuilder({ user, initialProfile }: { user: any; initialProf
                 >
                     {/* Personal Info */}
                     <section className="space-y-6">
-                        <div className="flex items-center gap-2 text-primary/80 group">
-                            <User className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                            <h3 className="font-bold uppercase text-xs tracking-[0.2em]">Contact Information</h3>
+                        <div className="flex items-center gap-2.5 group">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/15 group-hover:bg-violet-500/25 transition-colors">
+                                <User className="w-4 h-4 text-violet-400" />
+                            </div>
+                            <h3 className="font-bold uppercase text-xs tracking-[0.2em] text-violet-400">Contact Information</h3>
                         </div>
                         <div className="grid gap-6">
                             <div className="space-y-2">
@@ -367,9 +369,11 @@ export function ResumeBuilder({ user, initialProfile }: { user: any; initialProf
                     {/* Experience */}
                     <section className="space-y-6">
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-primary/80 group">
-                                <Briefcase className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                <h3 className="font-bold uppercase text-xs tracking-[0.2em]">Work Experience</h3>
+                            <div className="flex items-center gap-2.5 group">
+                                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500/15 group-hover:bg-sky-500/25 transition-colors">
+                                    <Briefcase className="w-4 h-4 text-sky-400" />
+                                </div>
+                                <h3 className="font-bold uppercase text-xs tracking-[0.2em] text-sky-400">Work Experience</h3>
                             </div>
                             <Button
                                 variant="outline"
@@ -439,9 +443,11 @@ export function ResumeBuilder({ user, initialProfile }: { user: any; initialProf
                     {/* Education */}
                     <section className="space-y-6">
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-primary/80 group">
-                                <GraduationCap className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                <h3 className="font-bold uppercase text-xs tracking-[0.2em]">Academic History</h3>
+                            <div className="flex items-center gap-2.5 group">
+                                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/15 group-hover:bg-indigo-500/25 transition-colors">
+                                    <GraduationCap className="w-4 h-4 text-indigo-400" />
+                                </div>
+                                <h3 className="font-bold uppercase text-xs tracking-[0.2em] text-indigo-400">Academic History</h3>
                             </div>
                             <Button
                                 variant="outline"
@@ -495,9 +501,11 @@ export function ResumeBuilder({ user, initialProfile }: { user: any; initialProf
                     {/* Projects */}
                     <section className="space-y-6">
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-primary/80 group">
-                                <Layers className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                <h3 className="font-bold uppercase text-xs tracking-[0.2em]">Featured Projects</h3>
+                            <div className="flex items-center gap-2.5 group">
+                                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15 group-hover:bg-emerald-500/25 transition-colors">
+                                    <Layers className="w-4 h-4 text-emerald-400" />
+                                </div>
+                                <h3 className="font-bold uppercase text-xs tracking-[0.2em] text-emerald-400">Featured Projects</h3>
                             </div>
                             <Button
                                 variant="outline"
@@ -560,9 +568,11 @@ export function ResumeBuilder({ user, initialProfile }: { user: any; initialProf
 
                     {/* Skills */}
                     <section className="space-y-6">
-                        <div className="flex items-center gap-2 text-primary/80 group">
-                            <Wrench className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                            <h3 className="font-bold uppercase text-xs tracking-[0.2em]">Technical Skills</h3>
+                        <div className="flex items-center gap-2.5 group">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f59e0b]/15 group-hover:bg-[#f59e0b]/25 transition-colors">
+                                <Wrench className="w-4 h-4 text-[#f59e0b]" />
+                            </div>
+                            <h3 className="font-bold uppercase text-xs tracking-[0.2em] text-[#f59e0b]">Technical Skills</h3>
                         </div>
                         <div className="space-y-4">
                             <div className="flex gap-2">
@@ -605,19 +615,23 @@ export function ResumeBuilder({ user, initialProfile }: { user: any; initialProf
             </div>
 
             {/* Right Side: Virtual Preview Studio */}
-            <div className="flex-[1.2] flex flex-col bg-muted/20 relative overflow-hidden group/preview">
+            <div className="flex-[1.2] flex flex-col bg-muted/20 relative overflow-hidden group/preview border-l border-primary/15">
                 {/* Visual Decorative Elements */}
                 <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
 
-                <div className="flex items-center justify-between px-8 py-4 z-10">
+                <div className="flex items-center justify-between border-b border-border/40 px-6 py-3 z-10">
                     <div className="flex items-center gap-3">
                         <div className="flex gap-1">
                             <div className="w-2 h-2 rounded-full bg-red-400/50" />
                             <div className="w-2 h-2 rounded-full bg-yellow-400/50" />
                             <div className="w-2 h-2 rounded-full bg-green-400/50" />
                         </div>
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">Drafting Environment</span>
+                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">Live Preview</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                        <span className="text-[9px] font-semibold text-emerald-400">Synced</span>
                     </div>
                 </div>
 

@@ -170,64 +170,51 @@ export function ProfileDataView({ profileData, onUploadAnother }: ProfileDataVie
 
     return (
         <div className="w-full space-y-8">
-            {/* Hero Header with Stats */}
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500/10 via-primary/5 to-blue-500/10 border border-emerald-500/20 p-8">
-                <div className="relative z-10">
-                    <div className="flex items-start justify-between mb-6">
-                        <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                                <CheckCircle className="w-8 h-8 text-white" />
-                            </div>
-                            <div>
-                                <h2 className="text-2xl font-bold text-foreground mb-1">Profile Active</h2>
-                                <p className="text-muted-foreground">Your resume has been analyzed and synced</p>
-                                {profileData.targetRole && (
-                                    <div className="flex items-center gap-2 mt-2">
-                                        <Target className="w-4 h-4 text-primary" />
-                                        <span className="text-sm font-medium text-primary">{profileData.targetRole}</span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        <Button
-                            variant="outline"
-                            onClick={onUploadAnother}
-                            className="bg-background/50 backdrop-blur-sm"
-                        >
-                            Update Resume
-                        </Button>
+            {/* Profile Active banner */}
+            <div className="flex flex-col gap-5 rounded-2xl border border-border/60 bg-card p-6 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/15">
+                        <CheckCircle className="h-6 w-6 text-emerald-500" />
                     </div>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-base font-bold text-foreground">Profile Active</h2>
+                            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-emerald-500">
+                                Synced
+                            </span>
+                        </div>
+                        <p className="mt-0.5 text-sm text-muted-foreground">
+                            Your resume has been analysed and synced
+                        </p>
+                        {profileData.targetRole && (
+                            <div className="mt-1.5 flex items-center gap-1.5">
+                                <Target className="h-3.5 w-3.5 text-primary" />
+                                <span className="text-sm font-semibold text-primary">{profileData.targetRole}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
 
-                    {/* Stats Grid */}
-                    <div className="grid grid-cols-3 gap-4">
-                        <div className="bg-background/80 backdrop-blur-sm rounded-xl p-5 border border-border/50">
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="p-2 bg-primary/10 rounded-lg">
-                                    <Sparkles className="w-5 h-5 text-primary" />
-                                </div>
-                                <span className="text-sm text-muted-foreground">Skills</span>
-                            </div>
-                            <p className="text-3xl font-bold text-foreground">{stats.skills}</p>
+                {/* Stats row */}
+                <div className="flex items-center gap-6 sm:flex-shrink-0">
+                    {[
+                        { icon: Sparkles, label: "Skills", value: stats.skills },
+                        { icon: GraduationCap, label: "Education", value: stats.education },
+                        { icon: Briefcase, label: "Experience", value: stats.experience },
+                    ].map(({ icon: Icon, label, value }) => (
+                        <div key={label} className="text-center">
+                            <p className="text-2xl font-extrabold tracking-tight text-foreground">{value}</p>
+                            <p className="text-xs text-muted-foreground">{label}</p>
                         </div>
-                        <div className="bg-background/80 backdrop-blur-sm rounded-xl p-5 border border-border/50">
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="p-2 bg-primary/10 rounded-lg">
-                                    <GraduationCap className="w-5 h-5 text-primary" />
-                                </div>
-                                <span className="text-sm text-muted-foreground">Education</span>
-                            </div>
-                            <p className="text-3xl font-bold text-foreground">{stats.education}</p>
-                        </div>
-                        <div className="bg-background/80 backdrop-blur-sm rounded-xl p-5 border border-border/50">
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="p-2 bg-primary/10 rounded-lg">
-                                    <Briefcase className="w-5 h-5 text-primary" />
-                                </div>
-                                <span className="text-sm text-muted-foreground">Experience</span>
-                            </div>
-                            <p className="text-3xl font-bold text-foreground">{stats.experience}</p>
-                        </div>
-                    </div>
+                    ))}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={onUploadAnother}
+                        className="ml-2 font-medium"
+                    >
+                        Update
+                    </Button>
                 </div>
             </div>
 
