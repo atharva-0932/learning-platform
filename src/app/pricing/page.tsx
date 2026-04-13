@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import RuixenPricing04 from "@/components/ui/ruixen-pricing-04";
-import { getRazorpaySubscribeUrl } from "@/lib/razorpay";
+import { PAYMENTS_PATH } from "@/lib/razorpay";
 
 export const metadata: Metadata = {
   title: "Pricing | SKILLSPHERE",
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function PricingPage() {
-  const proCheckoutUrl = getRazorpaySubscribeUrl("/signup");
+  const proCheckoutUrl = PAYMENTS_PATH;
 
   return (
     <div className="min-h-screen bg-background">

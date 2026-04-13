@@ -43,7 +43,7 @@ const features = [
   },
   {
     icon: Mic,
-    title: "Mock Interview",
+    title: "Job Ready",
     description:
       "Practice with AI interviewers, get real-time feedback, and build confidence for the big day.",
     color: "bg-primary text-primary-foreground",

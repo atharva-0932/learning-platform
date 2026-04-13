@@ -1,4 +1,13 @@
 const nextConfig = {
+  async redirects() {
+    return [
+      {
+        source: "/dashboard/interview",
+        destination: "/dashboard/job-ready",
+        permanent: true,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {

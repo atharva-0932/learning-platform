@@ -111,8 +111,8 @@ const mainNav = [
     icon: FileText,
   },
   {
-    href: "/dashboard/interview",
-    label: "Mock Interview",
+    href: "/dashboard/job-ready",
+    label: "Job Ready",
     icon: Mic,
     badge: "BETA" as const,
   },

@@ -52,6 +52,6 @@ export async function updateTargetRole(userId: string, targetRole: string) {
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/career");
-  revalidatePath("/dashboard/interview");
+    revalidatePath("/dashboard/job-ready");
   return { success: true };
 }

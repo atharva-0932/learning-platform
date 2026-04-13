@@ -18,7 +18,6 @@ import { ResumeUploadForm } from "@/components/dashboard/resume-upload-form";
 import { MatchScoreGauge } from "@/components/dashboard/match-score-gauge";
 import { ATSKeywordCloud } from "@/components/dashboard/ats-keyword-cloud";
 import { RoadmapShView } from "@/components/dashboard/roadmap-sh-view";
-import { JobOpeningsCrewPanel } from "@/components/dashboard/job-openings-crew-panel";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 interface CareerContentProps {
@@ -88,14 +87,9 @@ export function CareerContent({ user, assessment, profile }: CareerContentProps)
         <div className="space-y-10">
           {/* Roadmap - primary focus */}
           {targetRole && (
-            <>
-              <section className="w-full min-h-[calc(100dvh-9rem)]">
-                <RoadmapShView userId={user.id} targetRole={targetRole} />
-              </section>
-              <section className="w-full max-w-7xl mx-auto">
-                <JobOpeningsCrewPanel targetRole={targetRole} skills={profile?.skills ?? []} />
-              </section>
-            </>
+            <section className="w-full min-h-[calc(100dvh-9rem)]">
+              <RoadmapShView userId={user.id} targetRole={targetRole} />
+            </section>
           )}
 
           {/* Assessment section - only when assessment exists */}

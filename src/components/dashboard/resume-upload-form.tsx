@@ -247,14 +247,14 @@ export function ResumeUploadForm({ userId, onSuccess }: ResumeUploadFormProps) {
                                 </div>
                             </a>
 
-                            <a href="/dashboard/interview" className="block group">
+                            <a href="/dashboard/job-ready" className="block group">
                                 <div className="border rounded-lg p-4 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer">
                                     <div className="flex items-start gap-3">
                                         <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
                                             <Mic className="w-5 h-5 text-primary" />
                                         </div>
                                         <div>
-                                            <h4 className="font-semibold text-sm mb-1">Mock Interview</h4>
+                                            <h4 className="font-semibold text-sm mb-1">Job Ready</h4>
                                             <p className="text-xs text-muted-foreground">Practice with AI-powered interviews</p>
                                         </div>
                                     </div>

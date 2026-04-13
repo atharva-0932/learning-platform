@@ -19,7 +19,7 @@ const navItems = [
   { name: "Career Recommender", href: "/career", icon: Briefcase },
   { name: "Resume Builder", href: "/resume", icon: FileText },
   { name: "Smart Follow-Up", href: "/dashboard", icon: Bell },
-  { name: "Mock Interview", href: "/interview", icon: Mic2 },
+  { name: "Job Ready", href: "/dashboard/job-ready", icon: Mic2 },
 ];
 
 export function Sidebar() {

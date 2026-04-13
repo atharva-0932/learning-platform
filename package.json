@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test:razorpay": "node --env-file=.env.local scripts/test-razorpay.mjs",
     "flask": "export PYTHONPATH=$PYTHONPATH:. && python3 api/index.py"
   },
   "dependencies": {

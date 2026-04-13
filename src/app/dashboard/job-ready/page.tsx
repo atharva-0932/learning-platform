@@ -1,9 +1,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { InterviewClient } from "@/components/dashboard/interview-client";
-import { getRazorpaySubscribeUrl, hasPaymentProviderCustomer } from "@/lib/razorpay";
+import { PAYMENTS_PATH, hasPaymentProviderCustomer } from "@/lib/razorpay";
 
-export default async function InterviewPage() {
+export default async function JobReadyPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -13,9 +13,16 @@ export default async function InterviewPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("*")
+    .select("*, goals")
     .eq("user_id", user.id)
     .single();
+
+  const { data: userSkillsData } = await supabase
+    .from("user_skills")
+    .select("skills(name)")
+    .eq("user_id", user.id);
+
+  const skills = (userSkillsData || []).map((item: any) => item.skills?.name).filter(Boolean) as string[];
 
   const targetRole = profile?.goals?.target_role ?? null;
   const normalizedStatus = String(profile?.subscription_status ?? "").toLowerCase();
@@ -30,12 +37,13 @@ export default async function InterviewPage() {
       hasPaidPlan ||
       hasPaymentProviderCustomer(profile as Record<string, unknown> | null),
   );
-  const subscribeUrl = getRazorpaySubscribeUrl("/pricing");
+  const subscribeUrl = PAYMENTS_PATH;
 
   return (
     <InterviewClient
       userId={user.id}
       targetRole={targetRole}
+      skills={skills}
       isSubscribed={isSubscribed}
       subscribeUrl={subscribeUrl}
     />

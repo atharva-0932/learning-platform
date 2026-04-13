@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UpdateTargetRoleForm } from "@/components/dashboard/update-target-role-form";
+import { JobOpeningsCrewPanel } from "@/components/dashboard/job-openings-crew-panel";
 
 const VAPI_ASSISTANT_ID = "f3f950cc-601d-441f-8d38-67e5383cf706";
 
@@ -279,11 +280,13 @@ function ScoreBar({
 export function InterviewClient({
   userId,
   targetRole,
+  skills,
   isSubscribed,
   subscribeUrl,
 }: {
   userId: string;
   targetRole: string | null;
+  skills: string[];
   isSubscribed: boolean;
   subscribeUrl: string;
 }) {
@@ -416,7 +419,7 @@ export function InterviewClient({
               <Mic className="w-5 h-5 text-primary-foreground" />
             </div>
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-              Mock Interview
+              Job Ready
             </h1>
           </div>
           <p className="text-muted-foreground">
@@ -606,6 +609,12 @@ export function InterviewClient({
             </div>
           </div>
         </div>
+
+        {targetRole && (
+          <section className="mt-10 max-w-7xl mx-auto w-full">
+            <JobOpeningsCrewPanel targetRole={targetRole} skills={skills} />
+          </section>
+        )}
       </div>
 
       {/* Results Overlay */}
@@ -757,7 +766,7 @@ export function InterviewClient({
                   improvement suggestions after every interview.
                 </p>
                 <Button asChild className="w-full sm:w-auto">
-                  <a href={subscribeUrl}>Subscribe to Unlock Report</a>
+                  <Link href={subscribeUrl}>Subscribe to Unlock Report</Link>
                 </Button>
               </div>
             )}
