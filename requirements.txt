@@ -1,6 +1,0 @@
-supabase
-google-genai
-pymupdf
-python-dotenv
-flask
-requests
