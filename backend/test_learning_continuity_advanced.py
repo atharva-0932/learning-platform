@@ -1,10 +1,14 @@
 """Advanced learning continuity tests: cross-path detection, equivalency, and multi-user scenarios."""
 
 import json
+import logging
 import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+logger = logging.getLogger(__name__)
 
 BASE_URL = "http://127.0.0.1:8000"
 
@@ -60,13 +64,13 @@ def _get(path):
 
 def test_multi_user_learning_paths():
     """Test: Different users with different learning histories and recommendations."""
-    print("\n" + "="*70)
-    print("TEST: Multi-User Learning Path Analysis")
-    print("="*70)
+    logger.info("\n" + "="*70)
+    logger.info("TEST: Multi-User Learning Path Analysis")
+    logger.info("="*70)
     
     for user_name, user_id in TEST_USERS.items():
-        print(f"\n>>> Testing user: {user_name}")
-        print(f"    User ID: {user_id}")
+        logger.info(f"\n>>> Testing user: {user_name}")
+        logger.info(f"    User ID: {user_id}")
         
         # Get learning history
         status, body = _get(f"/api/learning-history/{user_id}")
@@ -74,8 +78,8 @@ def test_multi_user_learning_paths():
             resp = json.loads(body)
             completed = len(resp.get("completed_modules", []))
             skills = resp.get("total_skills_learned", 0)
-            print(f"    ✓ Completed modules: {completed}")
-            print(f"    ✓ Unique skills: {skills}")
+            logger.info(f"    ✓ Completed modules: {completed}")
+            logger.info(f"    ✓ Unique skills: {skills}")
             
             if completed > 0:
                 # If user has history, test cross-path detection
@@ -104,20 +108,20 @@ def test_multi_user_learning_paths():
                     resp = json.loads(body)
                     skipped = resp.get("modules_already_learned", 0)
                     to_study = resp.get("modules_to_study", 0)
-                    print(f"    ✓ Can skip (already learned): {skipped}")
-                    print(f"    ✓ Need to study: {to_study}")
+                    logger.info(f"    ✓ Can skip (already learned): {skipped}")
+                    logger.info(f"    ✓ Need to study: {to_study}")
         else:
-            print(f"    ✗ Error fetching history: {status}")
+            logger.info(f"    ✗ Error fetching history: {status}")
 
 
 def test_personalized_recommendation_per_user():
     """Test: Generate personalized roadmaps for each user."""
-    print("\n" + "="*70)
-    print("TEST: Personalized Roadmap Per User")
-    print("="*70)
+    logger.info("\n" + "="*70)
+    logger.info("TEST: Personalized Roadmap Per User")
+    logger.info("="*70)
     
     for user_name, user_id in TEST_USERS.items():
-        print(f"\n>>> Generating roadmap for {user_name}...")
+        logger.info(f"\n>>> Generating roadmap for {user_name}...")
         
         status, body = _post(
             "/api/agent/generate-contextual-roadmap",
@@ -153,24 +157,24 @@ def test_personalized_recommendation_per_user():
             if resp.get("success"):
                 summary = resp.get("summary", {})
                 modules_count = summary.get("new_modules_to_learn", 0)
-                print(f"    ✓ Roadmap generated")
-                print(f"    ✓ Modules to learn: {modules_count}")
+                logger.info(f"    ✓ Roadmap generated")
+                logger.info(f"    ✓ Modules to learn: {modules_count}")
             else:
-                print(f"    ✗ Roadmap generation failed")
+                logger.info(f"    ✗ Roadmap generation failed")
         else:
-            print(f"    ✗ Error: {status}")
+            logger.info(f"    ✗ Error: {status}")
 
 
 def test_record_completion_for_user():
     """Test: Record module completions for a user and verify tracking."""
-    print("\n" + "="*70)
-    print("TEST: Record Completion & Skill Tracking")
-    print("="*70)
+    logger.info("\n" + "="*70)
+    logger.info("TEST: Record Completion & Skill Tracking")
+    logger.info("="*70)
     
     # Use Atharva Sawant as test subject
     user = TEST_USERS["atharva_sawant"]
     
-    print(f"\n>>> Recording new module completion for {user}...")
+    logger.info(f"\n>>> Recording new module completion for {user}...")
     
     status, body = _post(
         "/api/record-completion",
@@ -186,7 +190,7 @@ def test_record_completion_for_user():
     
     resp = json.loads(body)
     if resp.get("success"):
-        print(f"    ✓ Completion recorded: {resp.get('completion_id')}")
+        logger.info(f"    ✓ Completion recorded: {resp.get('completion_id')}")
         
         # Verify in learning history
         status, body = _get(f"/api/learning-history/{user}")
@@ -194,23 +198,23 @@ def test_record_completion_for_user():
         total_modules = len(resp.get("completed_modules", []))
         total_skills = resp.get("total_skills_learned", 0)
         
-        print(f"    ✓ Updated history - Total modules: {total_modules}")
-        print(f"    ✓ Total unique skills: {total_skills}")
+        logger.info(f"    ✓ Updated history - Total modules: {total_modules}")
+        logger.info(f"    ✓ Total unique skills: {total_skills}")
     else:
         error = resp.get("error", "Unknown error")
-        print(f"    ✗ Failed: {error}")
+        logger.info(f"    ✗ Failed: {error}")
 
 
 
 def test_contextual_recommendation_with_history():
     """Test: Nova agent provides targeted recommendations based on learning history."""
-    print("\n" + "="*70)
-    print("TEST 2: Contextual Recommendation with Learning History")
-    print("="*70)
+    logger.info("\n" + "="*70)
+    logger.info("TEST 2: Contextual Recommendation with Learning History")
+    logger.info("="*70)
     
     user = TEST_USERS["database_expert"]
     
-    print("\n1. Generating contextual roadmap based on user's background...")
+    logger.info("\n1. Generating contextual roadmap based on user's background...")
     status, body = _post(
         "/api/agent/generate-contextual-roadmap",
         {
@@ -240,27 +244,27 @@ def test_contextual_recommendation_with_history():
         },
     )
     resp = json.loads(body)
-    print(f"   Status: {status}")
-    print(f"   Success: {resp.get('success', False)}")
-    print(f"   Modules in roadmap: {len(resp.get('modules_sequence', []))}")
+    logger.info(f"   Status: {status}")
+    logger.info(f"   Success: {resp.get('success', False)}")
+    logger.info(f"   Modules in roadmap: {len(resp.get('modules_sequence', []))}")
     
     if resp.get("contextual_roadmap"):
         roadmap_lines = resp["contextual_roadmap"].split("\n")
-        print(f"\n   Roadmap summary (first 3 lines):")
+        logger.info(f"\n   Roadmap summary (first 3 lines):")
         for line in roadmap_lines[:3]:
             if line.strip():
-                print(f"   {line}")
+                logger.info(f"   {line}")
 
 
 def test_skill_tracking_across_paths():
     """Test: Skills are tracked and endorsed across multiple learning paths."""
-    print("\n" + "="*70)
-    print("TEST 3: Skill Tracking Across Paths")
-    print("="*70)
+    logger.info("\n" + "="*70)
+    logger.info("TEST 3: Skill Tracking Across Paths")
+    logger.info("="*70)
     
     user = TEST_USERS["database_expert"]
     
-    print("\n1. Recording new module completion with skills...")
+    logger.info("\n1. Recording new module completion with skills...")
     status, body = _post(
         "/api/record-completion",
         {
@@ -273,29 +277,29 @@ def test_skill_tracking_across_paths():
         },
     )
     resp = json.loads(body)
-    print(f"   Status: {status}")
-    print(f"   Success: {resp.get('success', False)}")
+    logger.info(f"   Status: {status}")
+    logger.info(f"   Success: {resp.get('success', False)}")
     if resp.get("completion_id"):
-        print(f"   Completion ID: {resp['completion_id']}")
+        logger.info(f"   Completion ID: {resp['completion_id']}")
     
-    print("\n2. Checking updated learning history...")
+    logger.info("\n2. Checking updated learning history...")
     status, body = _get(f"/api/learning-history/{user}")
     resp = json.loads(body)
-    print(f"   Status: {status}")
-    print(f"   Total modules completed: {len(resp.get('completed_modules', []))}")
-    print(f"   Total unique skills: {resp.get('total_skills_learned', 0)}")
+    logger.info(f"   Status: {status}")
+    logger.info(f"   Total modules completed: {len(resp.get('completed_modules', []))}")
+    logger.info(f"   Total unique skills: {resp.get('total_skills_learned', 0)}")
     
     skill_names = [s["skill_name"] for s in resp.get("skill_endorsements", [])]
-    print(f"   Recent skills: {skill_names[:5]}")
+    logger.info(f"   Recent skills: {skill_names[:5]}")
 
 
 def test_module_equivalency():
     """Test: Detect if two modules teach similar content (AI-powered)."""
-    print("\n" + "="*70)
-    print("TEST 4: Module Equivalency Detection")
-    print("="*70)
+    logger.info("\n" + "="*70)
+    logger.info("TEST 4: Module Equivalency Detection")
+    logger.info("="*70)
     
-    print("\n1. Detecting equivalency between similar modules...")
+    logger.info("\n1. Detecting equivalency between similar modules...")
     status, body = _post(
         "/api/detect-equivalencies",
         {
@@ -314,23 +318,23 @@ def test_module_equivalency():
         },
     )
     resp = json.loads(body)
-    print(f"   Status: {status}")
-    print(f"   Success: {resp.get('success', False)}")
-    print(f"   Similarity score: {resp.get('similarity_score', 0)}")
-    print(f"   Is equivalent: {resp.get('is_equivalent', False)}")
+    logger.info(f"   Status: {status}")
+    logger.info(f"   Success: {resp.get('success', False)}")
+    logger.info(f"   Similarity score: {resp.get('similarity_score', 0)}")
+    logger.info(f"   Is equivalent: {resp.get('is_equivalent', False)}")
     if resp.get("overlapping_skills"):
-        print(f"   Overlapping skills: {resp['overlapping_skills']}")
+        logger.info(f"   Overlapping skills: {resp['overlapping_skills']}")
 
 
 def test_personalized_roadmap():
     """Test: Generate a roadmap personalized by learning history."""
-    print("\n" + "="*70)
-    print("TEST 5: Personalized Roadmap Generation")
-    print("="*70)
+    logger.info("\n" + "="*70)
+    logger.info("TEST 5: Personalized Roadmap Generation")
+    logger.info("="*70)
     
     user = TEST_USERS["database_expert"]
     
-    print("\n1. Generating personalized roadmap for ML path...")
+    logger.info("\n1. Generating personalized roadmap for ML path...")
     status, body = _post(
         "/api/personalized-roadmap",
         {
@@ -356,37 +360,37 @@ def test_personalized_roadmap():
         },
     )
     resp = json.loads(body)
-    print(f"   Status: {status}")
-    print(f"   Success: {resp.get('success', False)}")
+    logger.info(f"   Status: {status}")
+    logger.info(f"   Success: {resp.get('success', False)}")
     if resp.get("roadmap_summary"):
-        print(f"   Roadmap summary: {resp['roadmap_summary'][:200]}...")
+        logger.info(f"   Roadmap summary: {resp['roadmap_summary'][:200]}...")
 
 
 if __name__ == "__main__":
-    print("\n" + "="*70)
-    print("LEARNING CONTINUITY: REAL USER TEST SUITE")
-    print("Testing with 4 existing Supabase users")
-    print("="*70)
+    logger.info("\n" + "="*70)
+    logger.info("LEARNING CONTINUITY: REAL USER TEST SUITE")
+    logger.info("Testing with 4 existing Supabase users")
+    logger.info("="*70)
     
     test_multi_user_learning_paths()
     test_personalized_recommendation_per_user()
     test_record_completion_for_user()
     
     # Optional: Run the advanced tests only if needed
-    print("\n" + "="*70)
-    print("OPTIONAL: Advanced Equivalency & Roadmap Tests")
-    print("="*70)
+    logger.info("\n" + "="*70)
+    logger.info("OPTIONAL: Advanced Equivalency & Roadmap Tests")
+    logger.info("="*70)
     
     # Uncomment to run:
     # test_module_equivalency()
     # test_personalized_roadmap()
     
-    print("\n" + "="*70)
-    print("TEST SUITE COMPLETE")
-    print("="*70)
-    print("\nSummary:")
-    print("✓ Tested cross-path learning detection")
-    print("✓ Tested personalized recommendations per user")
-    print("✓ Tested skill tracking and module completion")
-    print("\nNext: Run `python backend/test_learning_continuity_advanced.py`")
+    logger.info("\n" + "="*70)
+    logger.info("TEST SUITE COMPLETE")
+    logger.info("="*70)
+    logger.info("\nSummary:")
+    logger.info("✓ Tested cross-path learning detection")
+    logger.info("✓ Tested personalized recommendations per user")
+    logger.info("✓ Tested skill tracking and module completion")
+    logger.info("\nNext: Run `python backend/test_learning_continuity_advanced.py`")
 

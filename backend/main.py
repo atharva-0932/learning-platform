@@ -18,6 +18,9 @@ if REPO_ENV.is_file():
     load_dotenv(REPO_ENV, override=False)
 load_dotenv(ROOT_ENV, override=True)
 
+import boto3
+import watchtower
+from botocore.exceptions import BotoCoreError, ClientError
 import anyio
 import httpx
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
@@ -34,8 +37,102 @@ from learning_continuity import LearningContinuityService
 from context_aware_agent import ContextAwareNovaAgent
 from pdf_parser import extract_text_from_pdf_bytes
 
-logging.basicConfig(level=logging.INFO)
+
+def _make_boto_session() -> boto3.Session:
+    """Single boto3 Session for Logs + Secrets Manager (uses env credentials when set)."""
+    region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION")
+    access_key = os.environ.get("AWS_ACCESS_KEY_ID")
+    secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
+    kwargs: dict[str, str] = {}
+    if region:
+        kwargs["region_name"] = region
+    if access_key and secret_key:
+        kwargs["aws_access_key_id"] = access_key
+        kwargs["aws_secret_access_key"] = secret_key
+    return boto3.session.Session(**kwargs)
+
+
+_AWS_SESSION = _make_boto_session()
+
+_LOGS_CLIENT: Any | None = None
+_SECRETS_CLIENT: Any | None = None
+try:
+    _LOGS_CLIENT = _AWS_SESSION.client("logs")
+except Exception:
+    pass
+try:
+    _SECRETS_CLIENT = _AWS_SESSION.client("secretsmanager")
+except Exception:
+    pass
+
+_LOG_FMT = "%(asctime)s %(levelname)s %(name)s %(message)s"
+logging.basicConfig(level=logging.INFO, format=_LOG_FMT)
 logger = logging.getLogger(__name__)
+_root_logger = logging.getLogger()
+
+if _LOGS_CLIENT is not None:
+    try:
+        _cw_handler = watchtower.CloudWatchLogHandler(
+            log_group_name="SkillCrew-Production",
+            log_stream_name="Backend-FastAPI",
+            boto3_client=_LOGS_CLIENT,
+        )
+        _cw_handler.setLevel(logging.INFO)
+        _root_logger.addHandler(_cw_handler)
+        logger.info("CloudWatch Logs handler attached (SkillCrew-Production / Backend-FastAPI).")
+    except Exception:
+        logger.error("CloudWatch Logs handler failed to initialize; logs remain on console only.", exc_info=True)
+else:
+    logger.warning("CloudWatch Logs client unavailable; skipping Watchtower handler.")
+
+if _SECRETS_CLIENT is None:
+    logger.warning("Secrets Manager client unavailable; ASM lookups will fall back to .env.")
+
+
+def get_secret(secret_name: str) -> str | None:
+    """
+    Fetch a secret string from AWS Secrets Manager using the shared boto3 client.
+
+    Falls back implicitly when callers keep .env-loaded settings: returns None on failure.
+    Never logs secret values.
+    """
+    name = (secret_name or "").strip()
+    if not name or _SECRETS_CLIENT is None:
+        return None
+    try:
+        response = _SECRETS_CLIENT.get_secret_value(SecretId=name)
+    except ClientError as exc:
+        code = exc.response.get("Error", {}).get("Code", "Unknown")
+        logger.warning("Secrets Manager ClientError for SecretId=%r: %s", name, code)
+        return None
+    except BotoCoreError as exc:
+        logger.warning("Secrets Manager BotoCoreError for SecretId=%r: %s", name, exc)
+        return None
+    except Exception:
+        logger.exception("Unexpected error fetching SecretId=%r", name)
+        return None
+
+    if "SecretString" in response and response["SecretString"] is not None:
+        raw = response["SecretString"].strip()
+    elif "SecretBinary" in response and response["SecretBinary"] is not None:
+        blob = response["SecretBinary"]
+        raw = blob.decode("utf-8") if isinstance(blob, (bytes, bytearray)) else str(blob).strip()
+    else:
+        logger.warning("Secrets Manager returned no SecretString/SecretBinary for SecretId=%r", name)
+        return None
+
+    if raw.startswith("{"):
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            return raw
+        if isinstance(parsed, dict) and len(parsed) == 1:
+            sole = next(iter(parsed.values()))
+            if isinstance(sole, str):
+                return sole.strip()
+        return raw
+
+    return raw
 
 
 class Settings(BaseSettings):
@@ -56,6 +153,13 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("SUPABASE_SERVICE_ROLE_KEY"),
     )
+    supabase_service_role_key_secret_name: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "SUPABASE_SERVICE_ROLE_KEY_SECRET_NAME",
+            "AWS_SECRET_NAME_SUPABASE_SERVICE_ROLE_KEY",
+        ),
+    )
     # Optional if you only use Apify for LinkedIn; Firecrawl fallback needs this.
     firecrawl_api_key: str = Field(
         default="",
@@ -64,6 +168,13 @@ class Settings(BaseSettings):
     google_api_key: str = Field(
         default="",
         validation_alias=AliasChoices("GOOGLE_API_KEY", "GEMINI_API_KEY"),
+    )
+    gemini_api_key_secret_name: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "GEMINI_API_KEY_SECRET_NAME",
+            "AWS_SECRET_NAME_GEMINI_API_KEY",
+        ),
     )
     gemini_model: str = Field(
         default="gemini-2.0-flash",
@@ -146,7 +257,50 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
 
+def _hydrate_sensitive_credentials_from_secrets_manager(settings: Settings) -> None:
+    """Load GEMINI/GOOGLE API key and Supabase service role from Secrets Manager when configured; fall back to .env."""
+    overrides: list[tuple[str | None, str, str]] = [
+        (
+            settings.gemini_api_key_secret_name,
+            "google_api_key",
+            "GEMINI_API_KEY / GOOGLE_API_KEY",
+        ),
+        (
+            settings.supabase_service_role_key_secret_name,
+            "supabase_service_role_key",
+            "SUPABASE_SERVICE_ROLE_KEY",
+        ),
+    ]
+
+    for secret_name, attr, label in overrides:
+        sid = (secret_name or "").strip()
+        if not sid:
+            continue
+        fallback = getattr(settings, attr, None)
+        try:
+            fetched = get_secret(sid)
+        except Exception:
+            logger.warning(
+                "Unexpected error fetching Secrets Manager secret %r; falling back to %s from environment.",
+                sid,
+                label,
+                exc_info=True,
+            )
+            fetched = None
+        if fetched:
+            setattr(settings, attr, fetched)
+            logger.info("Loaded %s from AWS Secrets Manager (secret id=%r).", label, sid)
+        elif fallback:
+            logger.info(
+                "Using %s from environment after Secrets Manager returned nothing or failed for %r.",
+                label,
+                sid,
+            )
+
+
 settings = Settings()
+
+_hydrate_sensitive_credentials_from_secrets_manager(settings)
 
 init_agents(settings)
 
@@ -157,7 +311,8 @@ def get_supabase() -> Client:
         raise HTTPException(
             status_code=503,
             detail=(
-                "Missing SUPABASE_SERVICE_ROLE_KEY. Add it to .env (Project Settings → API → service_role). "
+                "Missing SUPABASE_SERVICE_ROLE_KEY. Set SUPABASE_SERVICE_ROLE_KEY_SECRET_NAME for AWS Secrets Manager "
+                "or add SUPABASE_SERVICE_ROLE_KEY to .env (Project Settings → API → service_role). "
                 "The anon key cannot upsert with RLS enabled."
             ),
         )
