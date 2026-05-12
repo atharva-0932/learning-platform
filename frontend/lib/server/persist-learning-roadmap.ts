@@ -10,6 +10,7 @@ import { calendarWeeksUntilTarget, rescaleRoadmapRawForCalendarWeeks } from '@/l
 import { computeRoadmapSkillsProgressForUser } from '@/lib/roadmap-skills-progress'
 import { inferRecommendedJobTitle } from '@/lib/infer-recommended-job-title'
 import { buildLearnerContextPayload } from '@/lib/server/learner-context'
+import { enqueueArchieRoadmapAndAwaitBundle } from '@/lib/server/archie-roadmap-async'
 import { proxyAgent, readProxyAgentError } from '@/lib/server/agent-backend-proxy'
 
 function weeksFromRaw(raw: Record<string, unknown> | null): number {
@@ -199,17 +200,18 @@ export async function generateAndInsertSkillsRoadmap(
     skip_profile_pulse: true,
   })
 
-  const [rs, rc] = await Promise.all([
-    proxyAgent('/archie/roadmap', { context: { ...learnerSkills, roadmap_intent: 'skills' } }),
+  const [rawSkills, rc] = await Promise.all([
+    enqueueArchieRoadmapAndAwaitBundle({
+      context: { ...learnerSkills, roadmap_intent: 'skills' },
+      userId,
+    }),
     proxyAgent('/archie/certifications', {
       context: { ...learnerCertifications, roadmap_intent: 'certifications' },
     }),
   ])
 
-  if (!rs.ok) throw new Error(await readProxyAgentError(rs))
   if (!rc.ok) throw new Error(await readProxyAgentError(rc))
 
-  const rawSkills = (await rs.json()) as Record<string, unknown>
   const rawCert = (await rc.json()) as Record<string, unknown>
 
   const weeks = weeksFromRaw(rawSkills)
@@ -249,10 +251,10 @@ export async function generateAndInsertJobReadyRoadmap(
     skip_profile_pulse: false,
   })
 
-  const rj = await proxyAgent('/archie/roadmap', { context: { ...learnerJobReady, roadmap_intent: 'job_ready' } })
-  if (!rj.ok) throw new Error(await readProxyAgentError(rj))
-
-  const rawJob = (await rj.json()) as Record<string, unknown>
+  const rawJob = await enqueueArchieRoadmapAndAwaitBundle({
+    context: { ...learnerJobReady, roadmap_intent: 'job_ready' },
+    userId,
+  })
   const weeks = weeksFromRaw(rawJob)
   const eta = etaDateFromWeeks(weeks)
   const displayTitle = titleFromJobRaw(rawJob, d)
@@ -300,20 +302,22 @@ export async function generateAndInsertLearningRoadmap(
     skip_profile_pulse: true,
   })
 
-  const [rs, rj, rc] = await Promise.all([
-    proxyAgent('/archie/roadmap', { context: { ...learnerSkills, roadmap_intent: 'skills' } }),
-    proxyAgent('/archie/roadmap', { context: { ...learnerJobReady, roadmap_intent: 'job_ready' } }),
+  const [rawSkills, rawJob, rc] = await Promise.all([
+    enqueueArchieRoadmapAndAwaitBundle({
+      context: { ...learnerSkills, roadmap_intent: 'skills' },
+      userId,
+    }),
+    enqueueArchieRoadmapAndAwaitBundle({
+      context: { ...learnerJobReady, roadmap_intent: 'job_ready' },
+      userId,
+    }),
     proxyAgent('/archie/certifications', {
       context: { ...learnerCertifications, roadmap_intent: 'certifications' },
     }),
   ])
 
-  if (!rs.ok) throw new Error(await readProxyAgentError(rs))
-  if (!rj.ok) throw new Error(await readProxyAgentError(rj))
   if (!rc.ok) throw new Error(await readProxyAgentError(rc))
 
-  const rawSkills = (await rs.json()) as Record<string, unknown>
-  const rawJob = (await rj.json()) as Record<string, unknown>
   const rawCert = (await rc.json()) as Record<string, unknown>
 
   const weeks = Math.max(weeksFromRaw(rawSkills), weeksFromRaw(rawJob))
@@ -361,20 +365,22 @@ async function regenerateCombinedRoadmap(
     skip_profile_pulse: true,
   })
 
-  const [rs, rj, rc] = await Promise.all([
-    proxyAgent('/archie/roadmap', { context: { ...learnerSkills, roadmap_intent: 'skills' } }),
-    proxyAgent('/archie/roadmap', { context: { ...learnerJobReady, roadmap_intent: 'job_ready' } }),
+  const [rawSkills, rawJob, rc] = await Promise.all([
+    enqueueArchieRoadmapAndAwaitBundle({
+      context: { ...learnerSkills, roadmap_intent: 'skills' },
+      userId,
+    }),
+    enqueueArchieRoadmapAndAwaitBundle({
+      context: { ...learnerJobReady, roadmap_intent: 'job_ready' },
+      userId,
+    }),
     proxyAgent('/archie/certifications', {
       context: { ...learnerCertifications, roadmap_intent: 'certifications' },
     }),
   ])
 
-  if (!rs.ok) throw new Error(await readProxyAgentError(rs))
-  if (!rj.ok) throw new Error(await readProxyAgentError(rj))
   if (!rc.ok) throw new Error(await readProxyAgentError(rc))
 
-  const rawSkills = (await rs.json()) as Record<string, unknown>
-  const rawJob = (await rj.json()) as Record<string, unknown>
   const rawCert = (await rc.json()) as Record<string, unknown>
 
   const weeks = Math.max(weeksFromRaw(rawSkills), weeksFromRaw(rawJob))
@@ -445,17 +451,18 @@ async function regenerateSkillsOnlyRoadmap(
     skip_profile_pulse: true,
   })
 
-  const [rs, rc] = await Promise.all([
-    proxyAgent('/archie/roadmap', { context: { ...learnerSkills, roadmap_intent: 'skills' } }),
+  const [rawSkills, rc] = await Promise.all([
+    enqueueArchieRoadmapAndAwaitBundle({
+      context: { ...learnerSkills, roadmap_intent: 'skills' },
+      userId,
+    }),
     proxyAgent('/archie/certifications', {
       context: { ...learnerCertifications, roadmap_intent: 'certifications' },
     }),
   ])
 
-  if (!rs.ok) throw new Error(await readProxyAgentError(rs))
   if (!rc.ok) throw new Error(await readProxyAgentError(rc))
 
-  const rawSkills = (await rs.json()) as Record<string, unknown>
   const rawCert = (await rc.json()) as Record<string, unknown>
 
   const { data: prevRow } = await supabase
@@ -536,10 +543,10 @@ async function regenerateJobReadyOnlyRoadmap(
     extra_signals: continuationExtra,
   })
 
-  const rj = await proxyAgent('/archie/roadmap', { context: { ...learnerJobReady, roadmap_intent: 'job_ready' } })
-  if (!rj.ok) throw new Error(await readProxyAgentError(rj))
-
-  const rawJob = (await rj.json()) as Record<string, unknown>
+  const rawJob = await enqueueArchieRoadmapAndAwaitBundle({
+    context: { ...learnerJobReady, roadmap_intent: 'job_ready' },
+    userId,
+  })
 
   const { data: prevRow } = await supabase
     .from('user_archie_roadmaps')

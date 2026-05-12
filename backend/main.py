@@ -254,6 +254,19 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("RESEND_FROM_EMAIL"),
     )
 
+    sqs_skillcrew_task_queue_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "SQS_SKILLCREW_TASK_QUEUE_URL",
+        ),
+    )
+    sqs_skillcrew_task_queue_name: str = Field(
+        default="SkillCrew-Task-Queue",
+        validation_alias=AliasChoices(
+            "SQS_SKILLCREW_TASK_QUEUE_NAME",
+        ),
+    )
+
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
 
@@ -302,7 +315,7 @@ settings = Settings()
 
 _hydrate_sensitive_credentials_from_secrets_manager(settings)
 
-init_agents(settings)
+init_agents(settings, boto3_session=_AWS_SESSION)
 
 
 def get_supabase() -> Client:

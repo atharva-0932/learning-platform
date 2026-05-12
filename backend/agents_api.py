@@ -2,18 +2,21 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import uuid
 from pathlib import Path
 from typing import Any
 
 import httpx
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from supabase import create_client
 
-from archie_agent import build_certifications_bundle, build_roadmap_bundle, revise_roadmap_bundle
+from archie_agent import build_certifications_bundle, revise_roadmap_bundle
 from archie_tavily_enrich import enrich_archie_bundle_with_tavily
 from coach_agent import coach_turn
 from dexter_agent import fetch_resources_auto
@@ -24,7 +27,7 @@ from pip_agent import (
     grade_checkpoint_assessment,
     grade_quiz,
 )
-from sparky_agent import compose_engagement, dispatch_sendgrid_email, dispatch_twilio
+from roadmap_worker import ARCHIE_GENERATE_MESSAGE_TYPE
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +35,15 @@ router = APIRouter(prefix="/internal/agents", tags=["agents"])
 
 _settings: Any = None
 _cached_agent_secret: str = ""
+_sqs_client: Any | None = None
+_skillcrew_queue_url_cached: str | None = None
 
 
-def init_agents(settings: Any) -> None:
-    global _settings, _cached_agent_secret
+def init_agents(settings: Any, boto3_session: Any | None = None) -> None:
+    global _settings, _cached_agent_secret, _sqs_client, _skillcrew_queue_url_cached
     _settings = settings
+    _skillcrew_queue_url_cached = None
+    _sqs_client = None
     _cached_agent_secret = (
         (getattr(settings, "backend_agent_secret", None) or "").strip()
         or (os.environ.get("BACKEND_AGENT_SECRET") or "").strip()
@@ -45,6 +52,12 @@ def init_agents(settings: Any) -> None:
         env_path = Path(__file__).resolve().parent / ".env"
         load_dotenv(env_path, override=True)
         _cached_agent_secret = (os.environ.get("BACKEND_AGENT_SECRET") or "").strip()
+    if boto3_session is not None:
+        try:
+            _sqs_client = boto3_session.client("sqs")
+        except Exception:
+            logger.exception("failed to initialize SQS client from boto session")
+            _sqs_client = None
 
 
 def _s() -> Any:
@@ -114,18 +127,87 @@ def _service_supabase() -> Any:
     return create_client(url, key)
 
 
-def _milestone_week_count(bundle: dict[str, Any]) -> int:
-    m = bundle.get("milestones")
-    if not isinstance(m, list):
-        return 0
-    return len(m)
-
-
-MIN_ROADMAP_WEEKS = 8
+def _skillcrew_task_queue_url() -> str:
+    """Resolve SQS queue URL once (explicit env URL or boto3 GetQueueUrl by name)."""
+    global _skillcrew_queue_url_cached
+    if _skillcrew_queue_url_cached:
+        return _skillcrew_queue_url_cached
+    s = _s()
+    explicit = (getattr(s, "sqs_skillcrew_task_queue_url", None) or "").strip()
+    if explicit:
+        _skillcrew_queue_url_cached = explicit
+        return explicit
+    if _sqs_client is None:
+        raise HTTPException(
+            status_code=503,
+            detail="SQS is not initialized. Pass boto3_session into init_agents and configure AWS credentials.",
+        )
+    name = (getattr(s, "sqs_skillcrew_task_queue_name", None) or "SkillCrew-Task-Queue").strip()
+    try:
+        out = _sqs_client.get_queue_url(QueueName=name)
+    except Exception as e:
+        logger.exception("GetQueueUrl failed for queue name %r", name)
+        raise HTTPException(
+            status_code=503,
+            detail=f"Could not resolve SQS queue URL for {name!r}: {e!s}",
+        ) from e
+    url_raw = out.get("QueueUrl")
+    if not url_raw:
+        raise HTTPException(status_code=503, detail="GetQueueUrl returned empty QueueUrl.")
+    _skillcrew_queue_url_cached = str(url_raw).strip()
+    return _skillcrew_queue_url_cached
 
 
 class RoadmapBody(BaseModel):
     context: dict[str, Any]
+    user_id: str | None = None
+
+
+def _enqueue_generate_roadmap_job(body: RoadmapBody) -> JSONResponse:
+    if _sqs_client is None:
+        raise HTTPException(
+            status_code=503,
+            detail="SQS client not available. Configure AWS credentials and boto3 Session in init_agents.",
+        )
+
+    sb = _service_supabase()
+    job_uuid = uuid.uuid4()
+    job_id = str(job_uuid)
+    ctx = body.context if isinstance(body.context, dict) else {}
+    uid = (body.user_id or "").strip() or None
+
+    insert_row = {
+        "job_id": job_id,
+        "status": "processing",
+        "context": ctx,
+        "user_id": uid,
+    }
+    try:
+        sb.table("roadmap_generation_jobs").insert(insert_row).execute()
+    except Exception as e:
+        logger.exception("Failed to insert roadmap_generation_jobs row")
+        raise HTTPException(status_code=502, detail=f"Failed to enqueue job record: {e!s}") from e
+
+    message = {
+        "job_id": job_id,
+        "type": ARCHIE_GENERATE_MESSAGE_TYPE,
+        "context": ctx,
+    }
+    queue_url = _skillcrew_task_queue_url()
+
+    try:
+        _sqs_client.send_message(QueueUrl=queue_url, MessageBody=json.dumps(message, default=str))
+    except Exception as e:
+        logger.exception("Failed to publish roadmap job %s to SQS", job_id)
+        try:
+            sb.table("roadmap_generation_jobs").update(
+                {"status": "failed", "error_message": (f"sqs_send_failed: {e!s}")[:8000]},
+            ).eq("job_id", job_id).execute()
+        except Exception:
+            logger.exception("Failed to update job row after SQS failure")
+        raise HTTPException(status_code=502, detail=f"Failed to enqueue SQS message: {e!s}") from e
+
+    return JSONResponse(status_code=202, content={"job_id": job_id})
 
 
 class ReviseBody(BaseModel):
@@ -229,37 +311,39 @@ class CoachBody(BaseModel):
     payload: dict[str, Any]
 
 
+@router.post("/generate-roadmap", dependencies=[Depends(verify_agent_secret)])
 @router.post("/archie/roadmap", dependencies=[Depends(verify_agent_secret)])
-def archie_roadmap(body: RoadmapBody) -> dict[str, Any]:
+def enqueue_generate_archie_roadmap(body: RoadmapBody) -> JSONResponse:
+    """
+    Queue Archie roadmap generation (SQS + Supabase tracking). Crew / LLM work runs in a separate worker consumer.
+    """
+    return _enqueue_generate_roadmap_job(body)
+
+
+@router.get("/archie/roadmap/jobs/{job_id}", dependencies=[Depends(verify_agent_secret)])
+def roadmap_job_status(job_id: str) -> dict[str, Any]:
+    jid = job_id.strip()
+    if not jid:
+        raise HTTPException(status_code=400, detail="job_id required")
+    sb = _service_supabase()
     try:
-        bundle = build_roadmap_bundle(**_llm_kw(), context=body.context)
-        n = _milestone_week_count(bundle)
-        micro = False
-        ctx = body.context
-        if isinstance(ctx, dict):
-            prefs = ctx.get("preferences")
-            if isinstance(prefs, dict) and str(prefs.get("learning_pace", "")).lower() in (
-                "micro",
-                "1-week",
-                "one_week",
-                "crash",
-            ):
-                micro = True
-            if ctx.get("explicit_micro_course") is True:
-                micro = True
-        if not micro and n < MIN_ROADMAP_WEEKS:
-            ctx2 = dict(body.context)
-            ctx2["_minimum_weeks_remediation"] = (
-                f"The previous draft had only {n} weekly milestone(s). Regenerate the COMPLETE JSON roadmap with "
-                f"at least {MIN_ROADMAP_WEEKS} weekly milestones (week-1 … week-{MIN_ROADMAP_WEEKS}), "
-                "one module per week, each with five+ lessons; weeklyTimeline.totalWeeks must match."
-            )
-            bundle = build_roadmap_bundle(**_llm_kw(), context=ctx2)
-        tavily = getattr(_s(), "tavily_api_key", None)
-        return enrich_archie_bundle_with_tavily(bundle, tavily)
+        res = sb.table("roadmap_generation_jobs").select("job_id,status,result_bundle,error_message").eq(
+            "job_id", jid
+        ).limit(1).execute()
     except Exception as e:
-        logger.exception("archie roadmap")
+        logger.exception("roadmap job status lookup failed")
         raise HTTPException(status_code=502, detail=str(e)) from e
+    rows = getattr(res, "data", None) or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="job not found")
+    row = rows[0]
+    out: dict[str, Any] = {
+        "job_id": row.get("job_id"),
+        "status": row.get("status"),
+        "result_bundle": row.get("result_bundle"),
+        "error_message": row.get("error_message"),
+    }
+    return out
 
 
 @router.post("/archie/revise", dependencies=[Depends(verify_agent_secret)])

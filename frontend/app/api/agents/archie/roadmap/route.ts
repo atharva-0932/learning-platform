@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { proxyAgent, readProxyAgentError } from '@/lib/server/agent-backend-proxy'
+import { enqueueArchieRoadmapAndAwaitBundle } from '@/lib/server/archie-roadmap-async'
 import { buildLearnerContextPayload } from '@/lib/server/learner-context'
 import { normalizeArchieRoadmapBundle } from '@/lib/agents/normalize-roadmap'
 import { NextResponse } from 'next/server'
@@ -33,14 +33,10 @@ export async function POST(request: Request) {
       roadmap_intent: body.roadmap_intent,
     })
 
-    const res = await proxyAgent('/archie/roadmap', {
+    const raw = await enqueueArchieRoadmapAndAwaitBundle({
       context: { ...learner, roadmap_intent: body.roadmap_intent },
+      userId: user.id,
     })
-    if (!res.ok) {
-      const err = await readProxyAgentError(res)
-      return NextResponse.json({ error: err }, { status: res.status })
-    }
-    const raw = (await res.json()) as Record<string, unknown>
     const bundle = normalizeArchieRoadmapBundle(raw)
 
     const { error: snapErr } = await supabase.from('archie_roadmap_snapshots').insert({
