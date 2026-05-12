@@ -51,6 +51,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ bundle, raw })
   } catch (e) {
     console.error(e)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const message = e instanceof Error ? e.message : 'Internal server error'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
