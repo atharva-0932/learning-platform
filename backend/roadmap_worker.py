@@ -8,6 +8,7 @@ implements the logic that formerly ran inside `/internal/agents/archie/roadmap`.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from archie_agent import build_roadmap_bundle
@@ -19,12 +20,36 @@ MIN_ROADMAP_WEEKS = 8
 
 ARCHIE_GENERATE_MESSAGE_TYPE = "archie_generate_roadmap"
 
+_MIN_WEEKS_HINT = (
+    f"Output AT LEAST {MIN_ROADMAP_WEEKS} weekly milestones (week-1 … week-{MIN_ROADMAP_WEEKS}), "
+    "one module per week, each with five+ lessons; weeklyTimeline.totalWeeks must match."
+)
+
 
 def _milestone_week_count(bundle: dict[str, Any]) -> int:
     m = bundle.get("milestones")
     if not isinstance(m, list):
         return 0
     return len(m)
+
+
+def _is_micro_course(context: dict[str, Any]) -> bool:
+    prefs = context.get("preferences")
+    if isinstance(prefs, dict) and str(prefs.get("learning_pace", "")).lower() in (
+        "micro",
+        "1-week",
+        "one_week",
+        "crash",
+    ):
+        return True
+    return context.get("explicit_micro_course") is True
+
+
+def _prepare_generation_context(context: dict[str, Any]) -> dict[str, Any]:
+    ctx = dict(context)
+    if not _is_micro_course(ctx) and not ctx.get("_minimum_weeks_remediation"):
+        ctx["_minimum_weeks_requirement"] = _MIN_WEEKS_HINT
+    return ctx
 
 
 def run_generate_archie_bundle(
@@ -35,36 +60,30 @@ def run_generate_archie_bundle(
     google_api_key: str | None,
     gemini_model: str,
     tavily_api_key: str | None,
+    tavily_enrich_mode: str = "fast",
 ) -> dict[str, Any]:
     """Build and enrich an Archie roadmap bundle (same contract as the old synchronous HTTP handler)."""
+    ctx = _prepare_generation_context(context)
+
+    t0 = time.perf_counter()
     bundle = build_roadmap_bundle(
         groq_api_key=groq_api_key,
         groq_model=groq_model,
         google_api_key=google_api_key,
         gemini_model=gemini_model,
-        context=context,
+        context=ctx,
     )
     n = _milestone_week_count(bundle)
-    micro = False
-    ctx = context
-    if isinstance(ctx, dict):
-        prefs = ctx.get("preferences")
-        if isinstance(prefs, dict) and str(prefs.get("learning_pace", "")).lower() in (
-            "micro",
-            "1-week",
-            "one_week",
-            "crash",
-        ):
-            micro = True
-        if ctx.get("explicit_micro_course") is True:
-            micro = True
-    if not micro and n < MIN_ROADMAP_WEEKS:
+    logger.info("Roadmap LLM draft ready in %.1fs (%d milestones)", time.perf_counter() - t0, n)
+
+    if not _is_micro_course(ctx) and n < MIN_ROADMAP_WEEKS:
         ctx2 = dict(context)
         ctx2["_minimum_weeks_remediation"] = (
             f"The previous draft had only {n} weekly milestone(s). Regenerate the COMPLETE JSON roadmap with "
             f"at least {MIN_ROADMAP_WEEKS} weekly milestones (week-1 … week-{MIN_ROADMAP_WEEKS}), "
             "one module per week, each with five+ lessons; weeklyTimeline.totalWeeks must match."
         )
+        t1 = time.perf_counter()
         bundle = build_roadmap_bundle(
             groq_api_key=groq_api_key,
             groq_model=groq_model,
@@ -72,7 +91,20 @@ def run_generate_archie_bundle(
             gemini_model=gemini_model,
             context=ctx2,
         )
-    return enrich_archie_bundle_with_tavily(bundle, tavily_api_key)
+        logger.info(
+            "Roadmap LLM remediation in %.1fs (%d milestones)",
+            time.perf_counter() - t1,
+            _milestone_week_count(bundle),
+        )
+
+    t2 = time.perf_counter()
+    bundle = enrich_archie_bundle_with_tavily(
+        bundle,
+        tavily_api_key,
+        mode=tavily_enrich_mode,
+    )
+    logger.info("Roadmap Tavily enrich (%s) in %.1fs", tavily_enrich_mode, time.perf_counter() - t2)
+    return bundle
 
 
 def process_archie_generate_message(
@@ -85,6 +117,7 @@ def process_archie_generate_message(
     google_api_key: str | None,
     gemini_model: str,
     tavily_api_key: str | None,
+    tavily_enrich_mode: str = "fast",
 ) -> dict[str, Any]:
     """
     Run generation and persist result to `roadmap_generation_jobs`. Called from your SQS worker.
@@ -92,6 +125,7 @@ def process_archie_generate_message(
     """
     from datetime import datetime, timezone
 
+    started = time.perf_counter()
     try:
         bundle = run_generate_archie_bundle(
             context=context,
@@ -100,6 +134,7 @@ def process_archie_generate_message(
             google_api_key=google_api_key,
             gemini_model=gemini_model,
             tavily_api_key=tavily_api_key,
+            tavily_enrich_mode=tavily_enrich_mode,
         )
     except Exception as exc:
         logger.exception("Roadmap generation failed job_id=%s", job_id)
@@ -119,4 +154,5 @@ def process_archie_generate_message(
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
     ).eq("job_id", job_id).execute()
+    logger.info("Roadmap job completed job_id=%s in %.1fs", job_id, time.perf_counter() - started)
     return bundle

@@ -11,7 +11,7 @@ from typing import Any
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from supabase import create_client
@@ -27,7 +27,7 @@ from pip_agent import (
     grade_checkpoint_assessment,
     grade_quiz,
 )
-from roadmap_worker import ARCHIE_GENERATE_MESSAGE_TYPE
+from roadmap_worker import ARCHIE_GENERATE_MESSAGE_TYPE, process_archie_generate_message
 
 logger = logging.getLogger(__name__)
 
@@ -127,8 +127,15 @@ def _service_supabase() -> Any:
     return create_client(url, key)
 
 
-def _skillcrew_task_queue_url() -> str:
-    """Resolve SQS queue URL once (explicit env URL or boto3 GetQueueUrl by name)."""
+def _roadmap_queue_mode() -> str:
+    raw = (getattr(_s(), "archie_roadmap_queue_mode", None) or os.environ.get("ARCHIE_ROADMAP_QUEUE_MODE") or "auto").strip().lower()
+    if raw in ("sqs", "inline", "auto"):
+        return raw
+    return "auto"
+
+
+def _resolve_skillcrew_queue_url() -> str | None:
+    """Return queue URL or None if SQS is unavailable (does not raise)."""
     global _skillcrew_queue_url_cached
     if _skillcrew_queue_url_cached:
         return _skillcrew_queue_url_cached
@@ -138,24 +145,39 @@ def _skillcrew_task_queue_url() -> str:
         _skillcrew_queue_url_cached = explicit
         return explicit
     if _sqs_client is None:
+        return None
+    name = (getattr(s, "sqs_skillcrew_task_queue_name", None) or "SkillCrew-Task-Queue").strip()
+    try:
+        out = _sqs_client.get_queue_url(QueueName=name)
+    except Exception:
+        logger.warning("GetQueueUrl failed for queue name %r", name, exc_info=True)
+        return None
+    url_raw = out.get("QueueUrl")
+    if not url_raw:
+        return None
+    _skillcrew_queue_url_cached = str(url_raw).strip()
+    return _skillcrew_queue_url_cached
+
+
+def _skillcrew_task_queue_url() -> str:
+    """Resolve SQS queue URL once (explicit env URL or boto3 GetQueueUrl by name)."""
+    url = _resolve_skillcrew_queue_url()
+    if url:
+        return url
+    if _sqs_client is None:
         raise HTTPException(
             status_code=503,
             detail="SQS is not initialized. Pass boto3_session into init_agents and configure AWS credentials.",
         )
-    name = (getattr(s, "sqs_skillcrew_task_queue_name", None) or "SkillCrew-Task-Queue").strip()
-    try:
-        out = _sqs_client.get_queue_url(QueueName=name)
-    except Exception as e:
-        logger.exception("GetQueueUrl failed for queue name %r", name)
-        raise HTTPException(
-            status_code=503,
-            detail=f"Could not resolve SQS queue URL for {name!r}: {e!s}",
-        ) from e
-    url_raw = out.get("QueueUrl")
-    if not url_raw:
-        raise HTTPException(status_code=503, detail="GetQueueUrl returned empty QueueUrl.")
-    _skillcrew_queue_url_cached = str(url_raw).strip()
-    return _skillcrew_queue_url_cached
+    name = (getattr(_s(), "sqs_skillcrew_task_queue_name", None) or "SkillCrew-Task-Queue").strip()
+    raise HTTPException(
+        status_code=503,
+        detail=(
+            f"Could not resolve SQS queue URL for {name!r}. "
+            "Check AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_REGION, set SQS_SKILLCREW_TASK_QUEUE_URL, "
+            "or set ARCHIE_ROADMAP_QUEUE_MODE=inline for local development."
+        ),
+    )
 
 
 class RoadmapBody(BaseModel):
@@ -163,13 +185,51 @@ class RoadmapBody(BaseModel):
     user_id: str | None = None
 
 
-def _enqueue_generate_roadmap_job(body: RoadmapBody) -> JSONResponse:
-    if _sqs_client is None:
-        raise HTTPException(
-            status_code=503,
-            detail="SQS client not available. Configure AWS credentials and boto3 Session in init_agents.",
-        )
+def _worker_llm_kw() -> dict[str, Any]:
+    s = _s()
+    return {
+        "groq_api_key": getattr(s, "groq_api_key", None),
+        "groq_model": getattr(s, "groq_model", "llama-3.3-70b-versatile"),
+        "google_api_key": getattr(s, "google_api_key", None),
+        "gemini_model": getattr(s, "gemini_model", "gemini-2.0-flash"),
+        "tavily_api_key": getattr(s, "tavily_api_key", None),
+        "tavily_enrich_mode": getattr(s, "archie_tavily_enrich_mode", "fast"),
+    }
 
+
+def _run_roadmap_job_inline(job_id: str, context: dict[str, Any]) -> None:
+    """Process roadmap generation in-process (local dev when SQS is unavailable)."""
+    try:
+        process_archie_generate_message(
+            supabase=_service_supabase(),
+            job_id=job_id,
+            context=context,
+            **_worker_llm_kw(),
+        )
+    except Exception:
+        logger.exception("Inline roadmap generation failed job_id=%s", job_id)
+
+
+def _try_enqueue_sqs(job_id: str, context: dict[str, Any]) -> bool:
+    if _sqs_client is None:
+        return False
+    queue_url = _resolve_skillcrew_queue_url()
+    if not queue_url:
+        return False
+    message = {
+        "job_id": job_id,
+        "type": ARCHIE_GENERATE_MESSAGE_TYPE,
+        "context": context,
+    }
+    try:
+        _sqs_client.send_message(QueueUrl=queue_url, MessageBody=json.dumps(message, default=str))
+        return True
+    except Exception:
+        logger.warning("SQS send_message failed for job_id=%s", job_id, exc_info=True)
+        return False
+
+
+def _enqueue_generate_roadmap_job(body: RoadmapBody, background_tasks: BackgroundTasks) -> JSONResponse:
     sb = _service_supabase()
     job_uuid = uuid.uuid4()
     job_id = str(job_uuid)
@@ -188,25 +248,36 @@ def _enqueue_generate_roadmap_job(body: RoadmapBody) -> JSONResponse:
         logger.exception("Failed to insert roadmap_generation_jobs row")
         raise HTTPException(status_code=502, detail=f"Failed to enqueue job record: {e!s}") from e
 
-    message = {
-        "job_id": job_id,
-        "type": ARCHIE_GENERATE_MESSAGE_TYPE,
-        "context": ctx,
-    }
-    queue_url = _skillcrew_task_queue_url()
+    mode = _roadmap_queue_mode()
 
-    try:
-        _sqs_client.send_message(QueueUrl=queue_url, MessageBody=json.dumps(message, default=str))
-    except Exception as e:
-        logger.exception("Failed to publish roadmap job %s to SQS", job_id)
-        try:
-            sb.table("roadmap_generation_jobs").update(
-                {"status": "failed", "error_message": (f"sqs_send_failed: {e!s}")[:8000]},
-            ).eq("job_id", job_id).execute()
-        except Exception:
-            logger.exception("Failed to update job row after SQS failure")
-        raise HTTPException(status_code=502, detail=f"Failed to enqueue SQS message: {e!s}") from e
+    if mode == "inline":
+        logger.info("Running roadmap job inline job_id=%s", job_id)
+        background_tasks.add_task(_run_roadmap_job_inline, job_id, ctx)
+        return JSONResponse(status_code=202, content={"job_id": job_id})
 
+    if mode == "sqs":
+        if not _try_enqueue_sqs(job_id, ctx):
+            try:
+                sb.table("roadmap_generation_jobs").update(
+                    {"status": "failed", "error_message": "sqs_enqueue_failed"[:8000]},
+                ).eq("job_id", job_id).execute()
+            except Exception:
+                logger.exception("Failed to update job row after SQS failure")
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    "Failed to enqueue SQS message. Verify AWS credentials and queue configuration, "
+                    "or set ARCHIE_ROADMAP_QUEUE_MODE=inline for local development."
+                ),
+            )
+        return JSONResponse(status_code=202, content={"job_id": job_id})
+
+    if _try_enqueue_sqs(job_id, ctx):
+        logger.info("Enqueued roadmap job to SQS job_id=%s", job_id)
+        return JSONResponse(status_code=202, content={"job_id": job_id})
+
+    logger.info("SQS unavailable; running roadmap job inline job_id=%s", job_id)
+    background_tasks.add_task(_run_roadmap_job_inline, job_id, ctx)
     return JSONResponse(status_code=202, content={"job_id": job_id})
 
 
@@ -313,11 +384,11 @@ class CoachBody(BaseModel):
 
 @router.post("/generate-roadmap", dependencies=[Depends(verify_agent_secret)])
 @router.post("/archie/roadmap", dependencies=[Depends(verify_agent_secret)])
-def enqueue_generate_archie_roadmap(body: RoadmapBody) -> JSONResponse:
+def enqueue_generate_archie_roadmap(body: RoadmapBody, background_tasks: BackgroundTasks) -> JSONResponse:
     """
-    Queue Archie roadmap generation (SQS + Supabase tracking). Crew / LLM work runs in a separate worker consumer.
+    Queue Archie roadmap generation. Uses SQS when configured; otherwise runs inline in the API process (local dev).
     """
-    return _enqueue_generate_roadmap_job(body)
+    return _enqueue_generate_roadmap_job(body, background_tasks)
 
 
 @router.get("/archie/roadmap/jobs/{job_id}", dependencies=[Depends(verify_agent_secret)])
@@ -356,7 +427,8 @@ def archie_revise(body: ReviseBody) -> dict[str, Any]:
             learner_context=body.learner_context,
         )
         tavily = getattr(_s(), "tavily_api_key", None)
-        return enrich_archie_bundle_with_tavily(bundle, tavily)
+        enrich_mode = getattr(_s(), "archie_tavily_enrich_mode", "fast")
+        return enrich_archie_bundle_with_tavily(bundle, tavily, mode=enrich_mode)
     except Exception as e:
         logger.exception("archie revise")
         raise HTTPException(status_code=502, detail=str(e)) from e
@@ -456,6 +528,29 @@ def pip_checkpoint_grade(body: PipCheckpointGradeBody) -> dict[str, Any]:
         raise HTTPException(status_code=502, detail=str(e)) from e
 
 
+def _format_resend_api_error(response_text: str) -> str:
+    """Turn Resend JSON errors into short, actionable messages for the UI."""
+    raw = (response_text or "").strip()
+    message = raw
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict) and isinstance(data.get("message"), str):
+            message = data["message"].strip()
+    except json.JSONDecodeError:
+        pass
+
+    lower = message.lower()
+    if "only send testing emails to your own email" in lower:
+        return (
+            f"{message} "
+            "For local testing, set Settings → Email for quiz results to that address, "
+            "or verify a domain at resend.com/domains and set RESEND_FROM_EMAIL in backend/.env."
+        )
+    if "verify a domain" in lower:
+        return message
+    return message or "Resend rejected the email request."
+
+
 @router.post("/email/pip-checkpoint-summary", dependencies=[Depends(verify_agent_secret)])
 def pip_checkpoint_email(body: PipCheckpointEmailBody) -> dict[str, Any]:
     """Send HTML summary email via Resend (RESEND_API_KEY in backend/.env)."""
@@ -489,7 +584,7 @@ def pip_checkpoint_email(body: PipCheckpointEmailBody) -> dict[str, Any]:
             )
         if r.status_code >= 400:
             logger.warning("Resend error %s: %s", r.status_code, r.text[:500])
-            raise HTTPException(status_code=502, detail=f"Resend error: {r.text[:400]}")
+            raise HTTPException(status_code=502, detail=_format_resend_api_error(r.text))
         data = r.json()
         return {"success": True, "resend": data}
     except HTTPException:

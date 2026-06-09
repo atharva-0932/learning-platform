@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import type {
   ArchieContentSuggestion,
@@ -13,6 +13,8 @@ import type {
 } from '@/lib/archie-roadmap-mock'
 import { extractYoutubeVideoId, isYoutubeResourceUrl, youtubeThumbnailUrl } from '@/lib/youtube'
 import { RoadmapMilestoneQuizDialog } from '@/components/dashboard/roadmap-milestone-quiz'
+import { PipCheckpointReportDialog } from '@/components/dashboard/pip-checkpoint-report-dialog'
+import type { PipCheckpointReportSummary } from '@/lib/pip-checkpoint-report'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -35,6 +37,7 @@ import {
   ClipboardCheck,
   Crown,
   ExternalLink,
+  FileText,
   GraduationCap,
   HelpCircle,
   Loader2,
@@ -246,13 +249,17 @@ function SideCard({
   milestone,
   onOpenExplain,
   onOpenQuiz,
+  onOpenReport,
   quizDisabled,
+  hasReport,
   children,
 }: {
   milestone: ArchieMilestone
   onOpenExplain: () => void
   onOpenQuiz: () => void
+  onOpenReport?: () => void
   quizDisabled: boolean
+  hasReport?: boolean
   children?: ReactNode
 }) {
   const dim = milestone.status === 'locked'
@@ -351,6 +358,21 @@ function SideCard({
             <Brain className="size-3.5 text-foreground" />
             Pip&apos;s quiz
           </Button>
+          {hasReport && onOpenReport ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="relative z-10 w-full border-border/80 bg-muted/30 hover:bg-muted/50 sm:w-auto"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onOpenReport()
+              }}
+            >
+              <FileText className="size-3.5 text-foreground" />
+              View report
+            </Button>
+          ) : null}
         </div>
         {children}
       </CardContent>
@@ -470,6 +492,49 @@ export function ArchieGamifiedRoadmap({
     extraTopicFocus?: string[]
     questionCount?: number
   } | null>(null)
+  const [reportMilestone, setReportMilestone] = useState<ArchieMilestone | null>(null)
+  const [reportSummaries, setReportSummaries] = useState<Record<string, PipCheckpointReportSummary>>({})
+
+  useEffect(() => {
+    if (!roadmapId) {
+      setReportSummaries({})
+      return
+    }
+    const ctrl = new AbortController()
+    void (async () => {
+      try {
+        const qs = new URLSearchParams({ roadmap_mode: roadmapMode })
+        const res = await fetch(
+          `/api/learning-roadmaps/${encodeURIComponent(roadmapId)}/checkpoint/reports?${qs}`,
+          { credentials: 'include', signal: ctrl.signal },
+        )
+        if (!res.ok) return
+        const data = (await res.json()) as { reports?: Record<string, PipCheckpointReportSummary> }
+        setReportSummaries(data.reports ?? {})
+      } catch {
+        /* ignore */
+      }
+    })()
+    return () => ctrl.abort()
+  }, [roadmapId, roadmapMode])
+
+  const refreshReportSummaries = useCallback(() => {
+    if (!roadmapId) return
+    void (async () => {
+      try {
+        const qs = new URLSearchParams({ roadmap_mode: roadmapMode })
+        const res = await fetch(
+          `/api/learning-roadmaps/${encodeURIComponent(roadmapId)}/checkpoint/reports?${qs}`,
+          { credentials: 'include' },
+        )
+        if (!res.ok) return
+        const data = (await res.json()) as { reports?: Record<string, PipCheckpointReportSummary> }
+        setReportSummaries(data.reports ?? {})
+      } catch {
+        /* ignore */
+      }
+    })()
+  }, [roadmapId, roadmapMode])
   const [capstoneUnlocking, setCapstoneUnlocking] = useState(false)
 
   const capstoneBrief = useMemo(
@@ -792,6 +857,8 @@ export function ArchieGamifiedRoadmap({
                           milestone={m}
                           onOpenExplain={() => setExplainMilestone(m)}
                           onOpenQuiz={() => setQuizCtx({ milestone: m, questionCount: 6 })}
+                          onOpenReport={() => setReportMilestone(m)}
+                          hasReport={!!reportSummaries[m.id]}
                           quizDisabled={m.status === 'locked' || !roadmapId}
                         >
                           {mods.length > 0 ? (
@@ -1190,9 +1257,23 @@ export function ArchieGamifiedRoadmap({
         }}
         roadmapId={roadmapId ?? null}
         roadmapMode={roadmapMode}
-        onGraded={onRoadmapUpdated}
+        onGraded={() => {
+          refreshReportSummaries()
+          onRoadmapUpdated?.()
+        }}
         extraTopicFocus={quizCtx?.extraTopicFocus}
         questionCount={quizCtx?.questionCount}
+      />
+
+      <PipCheckpointReportDialog
+        open={!!reportMilestone}
+        onOpenChange={(v) => {
+          if (!v) setReportMilestone(null)
+        }}
+        roadmapId={roadmapId}
+        roadmapMode={roadmapMode}
+        milestoneId={reportMilestone?.id ?? null}
+        milestoneTitle={reportMilestone?.title}
       />
 
       <Dialog open={!!explainMilestone} onOpenChange={(v) => !v && setExplainMilestone(null)}>

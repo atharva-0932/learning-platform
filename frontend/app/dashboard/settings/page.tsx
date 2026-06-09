@@ -414,8 +414,8 @@ export default function SettingsPage() {
                         placeholder={profile.email || 'Optional — same as account email'}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Pip checkpoint summaries are sent here. Leave blank to use your account email (
-                        {profile.email}).
+                        Pip sends your full assessment report here after each checkpoint quiz. Leave blank to
+                        use your account email ({profile.email || 'none on file'}).
                       </p>
                     </div>
                   </div>

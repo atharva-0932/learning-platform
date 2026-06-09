@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { tavilySearch } from '@/lib/job-ready/tavily-search'
 import { runGlassdoorActor } from '@/lib/job-ready/apify-glassdoor'
+import { assertJobReadyApiAccess } from '@/lib/server/job-ready-api-guard'
 
 export const maxDuration = 120
 
@@ -10,6 +11,9 @@ type Body = {
 }
 
 export async function POST(req: Request) {
+  const access = await assertJobReadyApiAccess()
+  if (access instanceof NextResponse) return access
+
   let body: Body
   try {
     body = (await req.json()) as Body

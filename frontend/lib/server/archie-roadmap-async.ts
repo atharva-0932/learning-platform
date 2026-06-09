@@ -2,7 +2,7 @@ import { getBackendUrl } from '@/lib/backend-url'
 
 import { proxyAgent, readProxyAgentError } from '@/lib/server/agent-backend-proxy'
 
-const POLL_INTERVAL_MS = 2000
+const POLL_INTERVAL_MS = 800
 const POLL_MAX_MS = 480_000
 
 function sleep(ms: number) {

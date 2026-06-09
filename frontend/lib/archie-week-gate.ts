@@ -32,8 +32,19 @@ export function getLastPassedWeek(progress: RoadmapWeekGateProgress, intent: 'sk
 }
 
 export function parseWeekNumberFromMilestoneId(id: string): number | null {
-  const m = /^week-(\d+)$/i.exec(String(id).trim())
-  return m ? Number(m[1]) : null
+  const s = String(id).trim()
+  if (!s) return null
+  let m = /^week[-_]?(\d+)$/i.exec(s)
+  if (m) return Number(m[1])
+  m = /^w(\d+)$/i.exec(s)
+  if (m) return Number(m[1])
+  m = /(?:^|\b)week\s*(\d+)(?:\b|$)/i.exec(s)
+  if (m) return Number(m[1])
+  return null
+}
+
+export function canonicalMilestoneId(weekNumber: number): string {
+  return `week-${Math.max(1, Math.floor(weekNumber))}`
 }
 
 export function milestoneWeekNumber(m: ArchieMilestone, index: number): number {

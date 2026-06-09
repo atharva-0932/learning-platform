@@ -192,6 +192,11 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("TAVILY_API_KEY"),
     )
+    archie_tavily_enrich_mode: str = Field(
+        default="fast",
+        validation_alias=AliasChoices("ARCHIE_TAVILY_ENRICH_MODE"),
+        description="Tavily enrichment after LLM: off, fast (default), or full (slow oEmbed validation).",
+    )
     backend_agent_secret: str | None = Field(
         default=None,
         validation_alias=AliasChoices("BACKEND_AGENT_SECRET"),
@@ -265,6 +270,11 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices(
             "SQS_SKILLCREW_TASK_QUEUE_NAME",
         ),
+    )
+    archie_roadmap_queue_mode: str = Field(
+        default="auto",
+        validation_alias=AliasChoices("ARCHIE_ROADMAP_QUEUE_MODE"),
+        description="Roadmap job dispatch: auto (SQS if available, else inline), sqs, or inline.",
     )
 
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { assertJobReadyApiAccess } from '@/lib/server/job-ready-api-guard'
 import { getBackendUrl } from '@/lib/backend-url'
 import { NextResponse } from 'next/server'
 
@@ -121,6 +121,10 @@ type SessionRow = {
  * Response never includes the transcript.
  */
 export async function POST(req: Request) {
+  const access = await assertJobReadyApiAccess()
+  if (access instanceof NextResponse) return access
+  const { supabase, user } = access
+
   let body: Body
   try {
     body = (await req.json()) as Body
@@ -131,16 +135,6 @@ export async function POST(req: Request) {
   const sessionId = (body.sessionId ?? '').trim()
   if (!sessionId) {
     return NextResponse.json({ error: 'sessionId is required' }, { status: 400 })
-  }
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const { data: row, error: fetchError } = await supabase

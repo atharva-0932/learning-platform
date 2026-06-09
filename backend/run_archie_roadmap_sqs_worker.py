@@ -89,6 +89,7 @@ def main() -> None:
     groq_model = (os.environ.get("GROQ_MODEL") or "llama-3.3-70b-versatile").strip()
     gemini_model = (os.environ.get("GEMINI_MODEL") or "gemini-2.0-flash").strip()
     tavily_key = (os.environ.get("TAVILY_API_KEY") or "").strip() or None
+    tavily_enrich_mode = (os.environ.get("ARCHIE_TAVILY_ENRICH_MODE") or "fast").strip()
 
     logger.info("Polling queue url=%s visibility=%ds", queue_url, visibility)
 
@@ -146,6 +147,7 @@ def main() -> None:
                     google_api_key=google_key,
                     gemini_model=gemini_model,
                     tavily_api_key=tavily_key,
+                    tavily_enrich_mode=tavily_enrich_mode,
                 )
             except Exception:
                 logger.exception("Job failed job_id=%s", job_id)

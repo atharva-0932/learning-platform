@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { CompanyResearchCard } from '@/components/job-ready/company-research-card'
 import { MockInterviewSection } from '@/components/job-ready/mock-interview-section'
+import { JobReadyPortalGate } from '@/components/job-ready/job-ready-portal-gate'
 import { JobReadyTargetRoleProvider, useJobReadyTargetRole } from '@/components/job-ready/target-role-context'
 import { TopJobOpenings } from '@/components/job-ready/top-job-openings'
 import {
@@ -243,7 +244,9 @@ function JobReadyContent() {
 export default function JobReadyPage() {
   return (
     <JobReadyTargetRoleProvider>
-      <JobReadyContent />
+      <JobReadyPortalGate>
+        <JobReadyContent />
+      </JobReadyPortalGate>
     </JobReadyTargetRoleProvider>
   )
 }

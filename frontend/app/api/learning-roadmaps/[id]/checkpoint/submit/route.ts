@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { proxyAgent, readProxyAgentError } from '@/lib/server/agent-backend-proxy'
 import { buildLearnerContextPayload, insertContextEvent } from '@/lib/server/learner-context'
-import { normalizeArchieRoadmapBundle } from '@/lib/agents/normalize-roadmap'
 import {
+  canonicalMilestoneId,
   getLastPassedWeek,
   normalizeWeekGateProgress,
   parseWeekNumberFromMilestoneId,
@@ -14,6 +14,7 @@ import { XP_PIP_TEST_COMPLETION, xpFromPipScorePercent, levelFromXp } from '@/li
 import { perQuestionXpBreakdown, xpDeltaFromCheckpointResults } from '@/lib/roadmap-checkpoint-scoring'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { buildPipCheckpointEmailHtml } from '@/lib/email/pip-checkpoint-email-html'
+import { resolveQuizNotificationEmail } from '@/lib/pip-checkpoint-report'
 import { sendPipCheckpointEmail } from '@/lib/server/send-pip-checkpoint-email'
 import { NextResponse } from 'next/server'
 
@@ -51,14 +52,18 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (!body.assessment || !body.answers) {
       return NextResponse.json({ error: 'assessment and answers required' }, { status: 400 })
     }
-    const milestoneId = String(body.milestone_id || '').trim()
-    if (!milestoneId) {
+    const milestoneIdRaw = String(body.milestone_id || '').trim()
+    if (!milestoneIdRaw) {
       return NextResponse.json({ error: 'milestone_id is required' }, { status: 400 })
     }
-    const quizWeek = parseWeekNumberFromMilestoneId(milestoneId)
+    const quizWeek = parseWeekNumberFromMilestoneId(milestoneIdRaw)
     if (quizWeek == null || quizWeek < 1) {
-      return NextResponse.json({ error: 'milestone_id must match week-N (e.g. week-1)' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Could not determine week from milestone_id. Use a milestone like week-1.' },
+        { status: 400 },
+      )
     }
+    const milestoneId = canonicalMilestoneId(quizWeek)
 
     const { data: gateRow, error: gateErr } = await supabase
       .from('user_archie_roadmaps')
@@ -175,9 +180,29 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       note: String(r.note || '').trim().slice(0, 500),
     }))
 
+    const roadmapTitle = String((gateRow as { display_title?: string | null }).display_title || '').trim() || null
+
+    const fullReport = {
+      assessment: body.assessment,
+      answers: body.answers,
+      graded,
+      xp: {
+        previous: prevXp,
+        next: newXp,
+        gained,
+        lost,
+        net: totalXpDelta,
+        quiz_net: net,
+        score_bonus: scoreBonusXp,
+        pip_completion: pipActivityXp,
+        per_question: perQuestionXp,
+      },
+    }
+
     await insertContextEvent(supabase, user.id, 'pip', 'checkpoint_graded', {
       roadmap_id: roadmapId,
       roadmap_mode: body.roadmap_mode,
+      roadmap_title: roadmapTitle,
       score_percent: scorePct,
       xp_delta: totalXpDelta,
       xp_quiz_net: net,
@@ -191,6 +216,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         ? graded.flashcard_suggestions.slice(0, 12)
         : [],
       results_preview: resultsPreview,
+      report: fullReport,
     })
 
     let weekAdvanced = false
@@ -213,52 +239,52 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
     const kudos = scorePct >= 60 && net >= 0
 
-    let revisedBundle: ReturnType<typeof normalizeArchieRoadmapBundle> | null = null
-
     const shouldRevise = body.revise_on_weak !== false && weakTopics.length > 0
 
     if (shouldRevise) {
-      const { data: rm } = await supabase
-        .from('user_archie_roadmaps')
-        .select('bundles_raw, direction')
-        .eq('id', roadmapId)
-        .eq('user_id', user.id)
-        .maybeSingle()
+      void (async () => {
+        try {
+          const { data: rm } = await supabase
+            .from('user_archie_roadmaps')
+            .select('bundles_raw, direction')
+            .eq('id', roadmapId)
+            .eq('user_id', user.id)
+            .maybeSingle()
 
-      const bundles = (rm?.bundles_raw || {}) as Record<string, unknown>
-      const current_bundle = bundles[body.roadmap_mode] as Record<string, unknown> | undefined
-      const direction = String(rm?.direction || '').trim()
+          const bundles = (rm?.bundles_raw || {}) as Record<string, unknown>
+          const current_bundle = bundles[body.roadmap_mode] as Record<string, unknown> | undefined
+          const direction = String(rm?.direction || '').trim()
 
-      if (current_bundle && direction) {
-        const learner = await buildLearnerContextPayload(supabase, user.id, {
-          direction,
-          roadmap_intent: body.roadmap_mode,
-          roadmapId,
-        })
-        const adaptation_signals = {
-          reason: 'checkpoint_weak_topics',
-          weak_topics: weakTopics,
-          pip_summary_for_archie: graded.pip_summary_for_archie || '',
-          score_percent: scorePct,
-        }
-        const revRes = await proxyAgent('/archie/revise', {
-          current_bundle,
-          adaptation_signals,
-          learner_context: { ...learner, roadmap_intent: body.roadmap_mode },
-        })
-        if (revRes.ok) {
-          const revisedRaw = (await revRes.json()) as Record<string, unknown>
-          revisedBundle = normalizeArchieRoadmapBundle(revisedRaw)
-          try {
-            await updateRoadmapIntentBundleRaw(supabase, user.id, roadmapId, body.roadmap_mode, revisedRaw)
-          } catch (e) {
-            console.warn('update bundle after revise:', e)
+          if (!current_bundle || !direction) return
+
+          const learner = await buildLearnerContextPayload(supabase, user.id, {
+            direction,
+            roadmap_intent: body.roadmap_mode,
+            roadmapId,
+          })
+          const adaptation_signals = {
+            reason: 'checkpoint_weak_topics',
+            weak_topics: weakTopics,
+            pip_summary_for_archie: graded.pip_summary_for_archie || '',
+            score_percent: scorePct,
           }
+          const revRes = await proxyAgent('/archie/revise', {
+            current_bundle,
+            adaptation_signals,
+            learner_context: { ...learner, roadmap_intent: body.roadmap_mode },
+          })
+          if (!revRes.ok) {
+            console.warn('[pip] archie revise after checkpoint:', await readProxyAgentError(revRes))
+            return
+          }
+          const revisedRaw = (await revRes.json()) as Record<string, unknown>
+          await updateRoadmapIntentBundleRaw(supabase, user.id, roadmapId, body.roadmap_mode, revisedRaw)
+        } catch (e) {
+          console.warn('background revise after checkpoint:', e)
         }
-      }
+      })()
     }
 
-    const roadmapTitle = String((gateRow as { display_title?: string | null }).display_title || '').trim() || null
     void proxyAgent('/engagement/pip-checkpoint', {
       user_id: user.id,
       roadmap_id: roadmapId,
@@ -277,11 +303,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       .eq('id', user.id)
       .maybeSingle()
 
-    const override =
-      typeof profEmailRow?.quiz_notification_email === 'string'
-        ? profEmailRow.quiz_notification_email.trim()
-        : ''
-    const userEmail = (override && override.includes('@') ? override : user.email?.trim()) || ''
+    const userEmail = resolveQuizNotificationEmail({
+      quizNotificationEmail: profEmailRow?.quiz_notification_email,
+      authEmail: user.email,
+    })
+
+    let emailSent = false
+    let emailError: string | null = null
 
     if (userEmail) {
       const roadmapModeLabel = body.roadmap_mode === 'skills' ? 'Skills roadmap' : 'Job ready roadmap'
@@ -289,7 +317,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         const html = buildPipCheckpointEmailHtml({
           roadmapModeLabel,
           scorePercent: scorePct,
-          xpNet: net,
+          xpNet: totalXpDelta,
           questions,
           answers: body.answers,
           gradedResults: graded.results || [],
@@ -297,17 +325,27 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           weakTopics,
           flashcards: graded.flashcard_suggestions,
         })
-        const subject = `Pip quiz results — ${scorePct}% · ${roadmapModeLabel}`
-        void sendPipCheckpointEmail({ toEmail: userEmail, subject, html }).then((r) => {
-          if (!r.ok) console.warn('[pip] checkpoint email failed:', r.error)
-        })
+        const subject = `Your Pip assessment report — ${scorePct}% · ${roadmapModeLabel}`
+        const mail = await sendPipCheckpointEmail({ toEmail: userEmail, subject, html })
+        if (mail.ok) {
+          emailSent = true
+        } else {
+          emailError = mail.error
+          console.warn('[pip] checkpoint email failed:', mail.error)
+        }
       } catch (e) {
+        emailError = e instanceof Error ? e.message : 'Email send failed'
         console.warn('[pip] checkpoint email build/send:', e)
       }
+    } else {
+      emailError = 'Add an email in Settings → Email for quiz results to receive your report.'
     }
 
     return NextResponse.json({
       graded,
+      email_sent: emailSent,
+      email_to: userEmail || null,
+      email_error: emailError,
       xp: {
         previous: prevXp,
         next: newXp,
@@ -329,7 +367,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           : scorePct >= 60
             ? 'Nice work — you passed this checkpoint!'
             : undefined,
-      revised: revisedBundle ? { bundle: revisedBundle } : null,
+      revised: shouldRevise ? { pending: true } : null,
     })
   } catch (e) {
     console.error(e)

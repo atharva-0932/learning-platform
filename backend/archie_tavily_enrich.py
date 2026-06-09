@@ -151,8 +151,25 @@ def _filter_youtube_suggestions_parallel(items: list[dict[str, Any]]) -> list[di
     return [x for _, x in sorted(kept, key=lambda p: p[0])]
 
 
-def _fetch_tavily_for_module(api_key: str, title: str, skills: list[Any], summary: str) -> list[dict[str, Any]]:
+def _fetch_tavily_for_module(
+    api_key: str,
+    title: str,
+    skills: list[Any],
+    summary: str,
+    *,
+    fast: bool = False,
+) -> list[dict[str, Any]]:
     skill_txt = " ".join(str(s) for s in (skills or [])[:6] if s)
+    if fast:
+        query = f"best youtube tutorials courses articles to study: {title}. {skill_txt} {summary[:180]}".strip()
+        if len(query) > 420:
+            query = query[:420]
+        try:
+            return tavily_search(api_key=api_key, query=query, max_results=12)
+        except Exception as e:
+            logger.warning("Tavily fast query failed for %s: %s", title[:80], str(e)[:300])
+            return []
+
     base = f"best learning resources tutorials courses articles to study: {title}. {skill_txt} {summary[:240]}".strip()
     if len(base) > 420:
         base = base[:420]
@@ -175,29 +192,45 @@ def _fetch_tavily_for_module(api_key: str, title: str, skills: list[Any], summar
     return rows
 
 
-def _enrich_single_module(api_key: str, mod: dict[str, Any]) -> None:
-    """Enrich one module in-place: fetch Tavily rows, merge, then validate YouTube links."""
+def _enrich_single_module(api_key: str, mod: dict[str, Any], *, fast: bool = False) -> None:
+    """Enrich one module in-place: fetch Tavily rows, merge, then optionally validate YouTube links."""
     title = str(mod.get("title") or "").strip()
     if not title:
         return
     skills = mod.get("skills") or []
     summary = str(mod.get("summary") or "")
-    raw_rows = _fetch_tavily_for_module(api_key, title, skills if isinstance(skills, list) else [], summary)
+    raw_rows = _fetch_tavily_for_module(
+        api_key,
+        title,
+        skills if isinstance(skills, list) else [],
+        summary,
+        fast=fast,
+    )
     existing = mod.get("contentSuggestions")
     if not isinstance(existing, list):
         existing = []
     clean = [x for x in existing if isinstance(x, dict)]
     merged = _merge_tavily_into_suggestions(clean, raw_rows)
-    mod["contentSuggestions"] = _filter_youtube_suggestions_parallel(merged)
+    mod["contentSuggestions"] = merged if fast else _filter_youtube_suggestions_parallel(merged)
 
 
-def enrich_archie_bundle_with_tavily(bundle: dict[str, Any], tavily_api_key: str | None) -> dict[str, Any]:
+def enrich_archie_bundle_with_tavily(
+    bundle: dict[str, Any],
+    tavily_api_key: str | None,
+    *,
+    mode: str = "fast",
+) -> dict[str, Any]:
     """Append Tavily-backed URLs to each module's contentSuggestions (deduped).
-    All modules are enriched in parallel; oEmbed checks within each module are also parallelised.
+
+    mode: ``off`` (skip), ``fast`` (one query per module, no oEmbed checks), ``full`` (legacy).
     """
+    enrich_mode = (mode or "fast").strip().lower()
+    if enrich_mode == "off":
+        return bundle
     if not tavily_api_key or not str(tavily_api_key).strip():
         return bundle
     key = str(tavily_api_key).strip()
+    fast = enrich_mode != "full"
     sections = bundle.get("sections")
     if not isinstance(sections, list):
         return bundle
@@ -219,7 +252,7 @@ def enrich_archie_bundle_with_tavily(bundle: dict[str, Any], tavily_api_key: str
 
     # Enrich all modules concurrently.
     with ThreadPoolExecutor(max_workers=min(_MODULE_WORKERS, len(all_mods))) as pool:
-        futures = [pool.submit(_enrich_single_module, key, mod) for mod in all_mods]
+        futures = [pool.submit(_enrich_single_module, key, mod, fast=fast) for mod in all_mods]
         for future in as_completed(futures):
             try:
                 future.result()

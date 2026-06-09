@@ -211,32 +211,90 @@ def grade_checkpoint_assessment(
     assessment: dict[str, Any],
     answers: dict[str, Any],
 ) -> dict[str, Any]:
-    system = (
-        "You are Pip (the assessment fox). Grade fairly and constructively. "
-        "Checkpoints are multiple-choice: for each question, compare answers[qid].mcq_index to correct_index. "
-        "If a legacy coding/debug question appears, grade answers[qid].text against grading_rubric when present. "
-        "For each item, note should be short, encouraging, and actionable (if wrong, hint what to review). "
-        "weak_topics must use vocabulary from the learner's domain (marketing, music, etc.) — not generic tech. "
-        "Collect weak_topics from topics where the learner missed. "
-        "pip_summary_for_archie must be dense: what Archie should reinforce or reorder in the roadmap, "
-        "and suggest flashcard-style facts for mistakes (one line). JSON only."
+    """Grade checkpoint MCQs deterministically (fast, reliable). LLM keys are kept for API compatibility."""
+    del groq_api_key, groq_model, google_api_key, gemini_model
+
+    questions = assessment.get("questions") if isinstance(assessment.get("questions"), list) else []
+    answer_map = answers if isinstance(answers, dict) else {}
+    results: list[dict[str, Any]] = []
+
+    for q in questions:
+        if not isinstance(q, dict):
+            continue
+        qid = str(q.get("id") or "").strip()
+        if not qid:
+            continue
+        kind = str(q.get("kind") or "mcq").lower()
+        topic = str(q.get("topic") or q.get("prompt") or "Review").strip()[:120]
+        difficulty = str(q.get("difficulty") or "medium")
+        ans_entry = answer_map.get(qid)
+        correct = False
+        note = ""
+
+        if isinstance(ans_entry, dict):
+            if kind in ("mcq", "") and isinstance(q.get("choices"), list):
+                try:
+                    user_idx = ans_entry.get("mcq_index")
+                    correct_idx = int(q.get("correct_index"))
+                    user_i = int(user_idx) if user_idx is not None else -1
+                    correct = user_i == correct_idx
+                except (TypeError, ValueError):
+                    correct = False
+                explanation = str(q.get("explanation_after_answer") or q.get("explanation") or "").strip()
+                if correct:
+                    note = explanation or "Correct — nice work."
+                else:
+                    note = explanation or f"Review: {topic}"
+            elif kind in ("coding", "debug"):
+                text = str(ans_entry.get("text") or "").strip()
+                correct = len(text) >= 8
+                note = "Answer recorded." if correct else "Add a fuller answer to practice this skill."
+            else:
+                text = str(ans_entry.get("text") or "").strip()
+                correct = len(text) >= 3
+                note = "Answer recorded." if correct else "Add an answer to continue."
+
+        results.append(
+            {
+                "question_id": qid,
+                "correct": correct,
+                "topic": topic,
+                "difficulty": difficulty,
+                "kind": kind or "mcq",
+                "note": note[:500],
+            }
+        )
+
+    total = len(results)
+    correct_n = sum(1 for r in results if r.get("correct"))
+    score_percent = round(100 * correct_n / total) if total else 0
+    weak_topics = list(
+        dict.fromkeys(str(r.get("topic") or "").strip() for r in results if not r.get("correct"))
     )
-    prompt = (
-        json.dumps({"assessment": assessment, "answers": answers}, ensure_ascii=False)
-        + "\n\nReturn JSON: {\n"
-        '  "results": [ { "question_id": string, "correct": boolean, "topic": string, "difficulty": string, "kind": string, "note": string } ],\n'
-        '  "score_percent": number (0-100),\n'
-        '  "weak_topics": [string],\n'
-        '  "pip_summary_for_archie": string,\n'
-        '  "flashcard_suggestions": [ { "front": string, "back": string, "from_question_id": string } ] (optional; from wrong answers)\n'
-        "}"
-    )
-    return llm_generate_json(
-        groq_api_key=groq_api_key,
-        groq_model=groq_model,
-        google_api_key=google_api_key,
-        gemini_model=gemini_model,
-        system_instruction=system,
-        user_prompt=prompt,
-        temperature=0.15,
-    )
+    weak_topics = [t for t in weak_topics if t][:12]
+
+    flashcard_suggestions: list[dict[str, str]] = []
+    for r in results:
+        if r.get("correct"):
+            continue
+        flashcard_suggestions.append(
+            {
+                "front": str(r.get("topic") or "Review"),
+                "back": str(r.get("note") or "Review the lesson material."),
+                "from_question_id": str(r.get("question_id") or ""),
+            }
+        )
+
+    pip_summary = ""
+    if weak_topics:
+        pip_summary = (
+            f"Checkpoint score {score_percent}%. Reinforce: {', '.join(weak_topics[:6])}."
+        )
+
+    return {
+        "results": results,
+        "score_percent": score_percent,
+        "weak_topics": weak_topics,
+        "pip_summary_for_archie": pip_summary,
+        "flashcard_suggestions": flashcard_suggestions[:12],
+    }

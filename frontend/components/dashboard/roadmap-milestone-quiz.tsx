@@ -228,7 +228,14 @@ export function RoadmapMilestoneQuizDialog({
   }, [open, milestone, roadmapId, onOpenChange, extraTopicFocus, questionCount])
 
   const submit = async () => {
-    if (!assessment || !roadmapId) return
+    if (!roadmapId) {
+      toast.error('Save this roadmap before submitting your quiz.')
+      return
+    }
+    if (!assessment) {
+      toast.error('Quiz is still loading. Wait a moment and try again.')
+      return
+    }
     if (answeredCount < questions.length) {
       toast.message('Answer every question', { description: 'Pip is waiting for your full attempt.' })
       return
@@ -254,6 +261,9 @@ export function RoadmapMilestoneQuizDialog({
         xp?: XpPayload
         revised?: unknown
         week_advanced?: boolean
+        email_sent?: boolean
+        email_to?: string | null
+        email_error?: string | null
       } = {}
       try {
         data = JSON.parse(text)
@@ -266,11 +276,18 @@ export function RoadmapMilestoneQuizDialog({
       setXpDetail(data.xp ?? null)
       setRevised(!!data.revised)
       setResultsOpen(true)
-      if (data.revised) {
+      if (data.revised && typeof data.revised === 'object' && 'pending' in data.revised) {
+        toast.info('Archie may adjust your roadmap for weak spots in the background.')
+      } else if (data.revised) {
         toast.info('Archie may adjust your roadmap for weak spots.')
       }
       if (data.week_advanced) {
         toast.success('Next week unlocked — score over 75% on each week’s Pip quiz to keep going.')
+      }
+      if (data.email_sent && data.email_to) {
+        toast.success(`Detailed report emailed to ${data.email_to}`)
+      } else if (data.email_error) {
+        toast.message('Quiz saved — email not sent', { description: data.email_error })
       }
       onGraded?.()
     } catch (e) {

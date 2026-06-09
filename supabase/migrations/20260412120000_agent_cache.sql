@@ -1,7 +1,7 @@
 -- Semantic cache for agent responses (coach, etc.). Use Supabase pooler (port 6543) for direct Postgres
 -- clients; @supabase/supabase-js uses the HTTP API and is safe for concurrent serverless calls.
-
-create extension if not exists vector;
+--
+-- Requires pgvector in the `extensions` schema (Supabase Dashboard → Database → Extensions → vector).
 
 create table if not exists public.agent_cache (
   id uuid primary key default gen_random_uuid(),
@@ -9,7 +9,7 @@ create table if not exists public.agent_cache (
   agent_key text not null,
   input_hash text not null,
   input_preview text,
-  embedding vector(1536),
+  embedding extensions.vector(1536),
   response jsonb not null,
   created_at timestamptz not null default now()
 );
@@ -19,7 +19,7 @@ create index if not exists agent_cache_user_agent_hash_idx
 
 create index if not exists agent_cache_embedding_ivfflat_idx
   on public.agent_cache
-  using ivfflat (embedding vector_cosine_ops)
+  using ivfflat (embedding extensions.vector_cosine_ops)
   with (lists = 10);
 
 alter table public.agent_cache enable row level security;
@@ -38,7 +38,7 @@ create policy "agent_cache_delete_own"
 
 -- Similarity search: cosine distance <=> ; similarity = 1 - distance. Scoped to auth.uid().
 create or replace function public.match_agent_cache(
-  query_embedding vector(1536),
+  query_embedding extensions.vector(1536),
   match_agent text,
   match_threshold float,
   match_count int default 1
@@ -51,7 +51,7 @@ returns table (
 language sql
 stable
 security invoker
-set search_path = public
+set search_path = public, extensions
 as $$
   select
     c.id,
@@ -66,4 +66,4 @@ as $$
   limit greatest(1, least(match_count, 5));
 $$;
 
-grant execute on function public.match_agent_cache(vector, text, float, int) to authenticated;
+grant execute on function public.match_agent_cache(extensions.vector, text, float, int) to authenticated;

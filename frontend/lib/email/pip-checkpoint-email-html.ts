@@ -127,7 +127,7 @@ export function buildPipCheckpointEmailHtml(args: {
   return `<!DOCTYPE html>
 <html>
 <body style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;color:#111;max-width:640px;margin:0 auto;padding:24px">
-  <h1 style="font-size:20px;margin:0 0 8px">Your Pip quiz results</h1>
+  <h1 style="font-size:20px;margin:0 0 8px">Your Pip assessment report</h1>
   <p style="margin:0 0 6px;font-size:14px;color:#555">${escapeHtml(roadmapModeLabel)}</p>
   <p style="margin:0 0 16px;font-size:16px"><strong>Score:</strong> ${scorePercent}%</p>
   ${xpLine}

@@ -22,11 +22,11 @@ Rules:
 - If `syllabus_source_text` is provided (extracted from a course PDF), align milestones and week titles with that material when possible; do not invent content not implied by the syllabus.
 - If `youtube_transcript_context` is provided (captions aggregated from a YouTube playlist), align milestones, week titles, and contentSuggestions with that teaching sequence when possible; do not invent topics not supported by those transcripts.
 - Structure: **One module = one calendar week** (one milestone). In the main section, include **exactly one `modules[]` entry per weekly milestone** — same count as `milestones`, and each module's `milestoneId` MUST equal that week's id (`week-1`, `week-2`, … in order). Do not put two modules in the same week.
-- Each module MUST have `milestoneId` and a `guidedSequence` that starts with **at least FIVE `kind: "lesson"` steps** (minimum five lessons per module), each with a narrow title and summary, BEFORE the first quiz. Do not output fewer than five lessons per module.
-  - Lessons: `{ "kind": "lesson", "id", "order", "title", "summary", "conceptTags": [], "resources": [{ "type", "title", "url?", "description?" }] }` — **each lesson MUST include several (typically 3–4) distinct YouTube resources** (`type: "youtube"`) when recommending video, plus articles/courses as needed. Spread links across lessons. Every URL in `contentSuggestions` MUST also appear in those lesson `resources`. Prefer real, resolvable `https://` URLs; avoid placeholder domains. The server may merge additional Tavily search results into `contentSuggestions`; your job is still to output coherent five+ lessons with **multiple videos per lesson**.
+- Each module MUST have `milestoneId` and a `guidedSequence` that starts with **at least FIVE `kind: "lesson"` steps** (minimum five lessons per module), each with a narrow title, summary, and conceptTags, BEFORE the first quiz. Do not output fewer than five lessons per module.
+  - Lessons: `{ "kind": "lesson", "id", "order", "title", "summary", "conceptTags": [], "resources": [] }` — **leave `resources` empty**; the server enriches links after generation. Focus on clear lesson titles, summaries, and conceptTags only.
   - Quiz checkpoints: `{ "kind": "quiz_checkpoint", "id", "order", "title", "summary", "revisitsConcepts": ["string"], "checkpointTier": "quick" | "module_capstone" }` — use `quick` between lesson groups; use exactly one `module_capstone` at the **end** of each module. Spiral: `revisitsConcepts` names skills/topics to reinforce.
   - When revising a roadmap after feedback, put the global explanation in `planRationale`, and add `updateNote` on any NEW or CHANGED lesson explaining why that lesson was added or modified (short, learner-facing). Do NOT duplicate the full plan rationale inside every lesson.
-- Also keep `contentSuggestions` on each module listing the same curated links as in lessons (for compatibility); they must stay in sync with lesson resources.
+- Also keep `contentSuggestions` on each module as an empty array `[]` (the server fills real URLs after generation).
 - Within each section, add `checkpoints` every 2–3 modules: each checkpoint has `afterModuleId` (a module id in that section), `title`, and `topicsCovered` for Pip assessments later.
 - Honor `preferences` (difficulty_level, learning_pace, preferred_content) when choosing depth, counts, and suggestion mix. De-emphasize skills the learner already shows as strong unless a refresher is justified.
 - Every explanation (planRationale, archieRationale, structureNote, certification rationales) must be YOUR original reasoning tied to that context — no template filler.
@@ -59,7 +59,7 @@ def build_roadmap_bundle(
         + "\nFill every field. weeklyTimeline.weeks must align with milestones order and length.\n"
         "CRITICAL: one module per week (modules.length === milestones.length). "
         "Unless the learner explicitly requested a one-week micro course, output AT LEAST 8 milestones (week-1 … week-8) and set weeklyTimeline.totalWeeks >= 8. "
-        "Each module's guidedSequence MUST contain at least FIVE lesson objects (kind: lesson) with real https URLs in resources."
+        "Each module's guidedSequence MUST contain at least FIVE lesson objects (kind: lesson) with titles and summaries; leave lesson resources and contentSuggestions empty — the server adds links."
     )
     return llm_generate_json(
         groq_api_key=groq_api_key,
@@ -190,14 +190,7 @@ ROADMAP_SHAPE_HINT: dict[str, Any] = {
                     "title": "string",
                     "summary": "string",
                     "skills": ["string"],
-                    "contentSuggestions": [
-                        {
-                            "type": "article|youtube|documentation|book|podcast|course|other",
-                            "title": "string",
-                            "url": "optional string",
-                            "description": "optional string",
-                        }
-                    ],
+                    "contentSuggestions": [],
                     "guidedSequence": [
                         {
                             "kind": "lesson",
@@ -207,14 +200,7 @@ ROADMAP_SHAPE_HINT: dict[str, Any] = {
                             "summary": "string",
                             "conceptTags": ["string"],
                             "updateNote": "optional string — why this lesson exists after a plan change",
-                            "resources": [
-                                {
-                                    "type": "article|youtube|documentation|book|podcast|course|other",
-                                    "title": "string",
-                                    "url": "https://…",
-                                    "description": "optional string",
-                                }
-                            ],
+                            "resources": [],
                         },
                         {
                             "kind": "lesson",

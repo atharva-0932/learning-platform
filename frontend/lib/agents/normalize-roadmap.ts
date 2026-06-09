@@ -12,6 +12,7 @@ import type {
   ArchieRoadmapSection,
 } from '@/lib/archie-roadmap-mock'
 import type { RoleArchetype, WeeklyTimelineResult } from '@/lib/archie-weekly-timelines'
+import { canonicalMilestoneId, parseWeekNumberFromMilestoneId } from '@/lib/archie-week-gate'
 import { isYoutubeResourceUrl } from '@/lib/youtube'
 
 const SUGGESTION_TYPES: ArchieContentSuggestionType[] = [
@@ -404,6 +405,14 @@ function assignMilestoneIds(modules: ArchieRoadmapModule[], milestones: ArchieMi
   if (w === 0 || modules.length === 0) return
   const n = modules.length
   modules.forEach((mod, i) => {
+    const parsed = mod.milestoneId ? parseWeekNumberFromMilestoneId(mod.milestoneId) : null
+    if (parsed != null) {
+      const canonical = canonicalMilestoneId(parsed)
+      if (milestones.some((m) => m.id === canonical)) {
+        mod.milestoneId = canonical
+        return
+      }
+    }
     if (mod.milestoneId && milestones.some((m) => m.id === mod.milestoneId)) return
     const bucket = Math.min(w - 1, Math.floor((i * w) / Math.max(1, n)))
     mod.milestoneId = milestones[bucket].id
@@ -510,14 +519,16 @@ export function normalizeArchieRoadmapBundle(raw: Record<string, unknown>): Arch
   const milestonesRaw = Array.isArray(raw.milestones) ? raw.milestones : []
   const milestones: ArchieMilestone[] = milestonesRaw.map((m, idx) => {
     const o = (m || {}) as Record<string, unknown>
+    const weekNum = idx + 1
     const status = (['completed', 'in_progress', 'available', 'locked'].includes(String(o.status))
       ? o.status
       : 'locked') as ArchieMilestone['status']
     const learningObjective =
       o.learningObjective != null ? String(o.learningObjective) : undefined
+    const parsedWeek = parseWeekNumberFromMilestoneId(String(o.id || ''))
     return {
-      id: String(o.id || `week-${idx + 1}`),
-      phaseLabel: String(o.phaseLabel || `W${idx + 1}`),
+      id: canonicalMilestoneId(parsedWeek ?? weekNum),
+      phaseLabel: String(o.phaseLabel || `W${weekNum}`),
       title: String(o.title || weeklyTimeline.weeks[idx]?.title || `Week ${idx + 1}`),
       topics: Array.isArray(o.topics)
         ? (o.topics as unknown[]).map((t) => String(t))

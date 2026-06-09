@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { assertJobReadyApiAccess } from '@/lib/server/job-ready-api-guard'
 import { NextResponse } from 'next/server'
 
 export const maxDuration = 60
@@ -14,6 +14,10 @@ type Body = {
  * Persist transcript after a Vapi call. Does not return transcript text to the client.
  */
 export async function POST(req: Request) {
+  const access = await assertJobReadyApiAccess()
+  if (access instanceof NextResponse) return access
+  const { supabase, user } = access
+
   let body: Body
   try {
     body = (await req.json()) as Body
@@ -25,16 +29,6 @@ export async function POST(req: Request) {
   const targetRole = (body.targetRole ?? '').trim()
   if (!transcript || !targetRole) {
     return NextResponse.json({ error: 'transcript and targetRole are required' }, { status: 400 })
-  }
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const vapiCallId = (body.vapiCallId ?? '').trim() || null

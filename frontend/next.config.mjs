@@ -21,8 +21,30 @@ const vapiPublicKey =
 const vapiAssistantId =
   process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID || process.env.VAPI_ASSISTANT_ID || ''
 
+const frontendDir = __dirname
+const frontendNodeModules = path.join(frontendDir, 'node_modules')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Monorepo: repo root has package.json; keep resolution inside frontend/
+  turbopack: {
+    root: frontendDir,
+    resolveAlias: {
+      tailwindcss: path.join(frontendNodeModules, 'tailwindcss'),
+      '@tailwindcss/postcss': path.join(frontendNodeModules, '@tailwindcss/postcss'),
+    },
+  },
+  webpack: (config) => {
+    config.resolve.modules = [
+      frontendNodeModules,
+      ...(config.resolve.modules ?? ['node_modules']),
+    ]
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      tailwindcss: path.join(frontendNodeModules, 'tailwindcss'),
+    }
+    return config
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
