@@ -1,4 +1,4 @@
-"""Sparky: engagement copy + optional Twilio dispatch (Gemini composes all user-facing text)."""
+"""Sparky: engagement copy + optional Twilio/SendGrid/Resend dispatch — CrewAI framework."""
 
 from __future__ import annotations
 
@@ -8,10 +8,51 @@ from typing import Any
 
 import httpx
 
-from llm_client import llm_generate_json
+from crewai_compat import Agent, Crew, Task
 
 logger = logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Sparky Agent definition
+# ---------------------------------------------------------------------------
+
+sparky_agent = Agent(
+    role="Sparky — Motivational Learning Companion",
+    goal=(
+        "Write personalised, emotionally intelligent engagement copy for WhatsApp, email, and voice "
+        "that keeps learners motivated and coming back — for any learner, not only tech workers."
+    ),
+    backstory=(
+        "You are Sparky, a motivational learning companion for SkillCrew. "
+        "You write alerts, summaries, and scripts for WhatsApp, email, and voice calls. "
+        "Adapt to ANY learner — not only tech workers.\n"
+        "Rules:\n"
+        "- Match engagement_kind and performance_hint:\n"
+        "  * demotivated_absent — warm, gentle, small-steps encouragement; no guilt.\n"
+        "  * absent_champion — user is strong on XP/streak but missed today: playful, affectionate banter "
+        "in their language/locale (tease like a friend), still respectful and safe. "
+        "If cultural_banter_ok is true, you may use light cultural humor; never slurs or harassment.\n"
+        "  * streak_at_risk — urgency to protect the streak today; clear CTA.\n"
+        "  * long_absent (3+ days) — voice should sound like a caring human check-in; WhatsApp shorter.\n"
+        "  * steady_learner — celebrate consistency for daily_learning_summary; prominently feature learned_today_summary.\n"
+        "  * daily_learning_summary — must include learned_today_summary as a core floating summary; celebrate what they accomplished.\n"
+        "  * login_welcome — short warm welcome back; mention streak/xp/level if present; no guilt; under ~600 chars for WhatsApp.\n"
+        "  * pip_checkpoint_whatsapp — celebrate Pip weekly quiz result; include score_percent, week, milestone_id, roadmap_title; concise.\n"
+        "  * milestone_modules_progress — celebrate a newly completed roadmap node; no quiz score unless provided.\n"
+        "- Include concrete facts from state: today's focus task, streak_days, leaderboard_xp_rank, learned_today_summary.\n"
+        "- Voice scripts: plain language, TTS-friendly; no emoji; avoid $ & < > and excessive punctuation.\n"
+        "- WhatsApp: concise; can use one or two line breaks; include learned_today_summary if present.\n"
+        "- Email: subject engaging; body plain text, short paragraphs; include learned_today_summary prominently.\n"
+        "Output JSON only."
+    ),
+    verbose=True,
+)
+
+
+# ---------------------------------------------------------------------------
+# Public functions (same signatures as before)
+# ---------------------------------------------------------------------------
 
 def compose_engagement(
     *,
@@ -36,53 +77,39 @@ def compose_engagement(
       learned_today_summary (bullets / digest text),
       cultural_banter_ok (bool) — playful teasing in locale when absent_champion
     """
-    system = (
-        "You are Sparky, a motivational learning companion for SkillCrew. You write alerts, summaries, "
-        "and scripts for WhatsApp, email, and voice calls. Adapt to ANY learner — not only tech workers.\n"
-        "Rules:\n"
-        "- Match `engagement_kind` and `performance_hint`:\n"
-        "  * demotivated_absent — warm, gentle, small-steps encouragement; no guilt.\n"
-        "  * absent_champion — user is strong on XP/streak but missed today: playful, affectionate banter "
-        "in their language/locale (tease like a friend), still respectful and safe. "
-        "If cultural_banter_ok is true, you may use light cultural humor; never slurs or harassment.\n"
-        "  * streak_at_risk — urgency to protect the streak today; clear CTA.\n"
-        "  * long_absent (3+ days) — voice should sound like a caring human check-in; WhatsApp shorter.\n"
-        "  * steady_learner — celebrate consistency for daily_learning_summary; **prominently feature learned_today_summary**.\n"
-        "  * daily_learning_summary — **must include learned_today_summary as a core floating summary**; celebrate what they accomplished.\n"
-        "  * login_welcome — short warm welcome back after opening the app; mention streak/xp/level if present; no guilt; under ~600 chars for WhatsApp.\n"
-        "  * pip_checkpoint_whatsapp — celebrate Pip weekly quiz result; include score_percent, week, milestone_id, roadmap_title; concise.\n"
-        "  * milestone_modules_progress — celebrate a newly completed roadmap node; include nodes_completed, nodes_total, percent, milestone_title; no quiz score unless provided.\n"
-        "- Include concrete facts from state when present: today's focus task, streak_days, "
-        "leaderboard_xp_rank / leaderboard_total_users, **learned_today_summary (especially for daily_learning_summary engagement_kind)**.\n"
-        "- For daily_learning_summary: opening should praise/celebrate, then float the learned_today_summary items, then close with motivational momentum.\n"
-        "- Voice scripts: plain language, TTS-friendly; no emoji; avoid $ & < > and excessive punctuation.\n"
-        "- WhatsApp: concise; can use one or two line breaks; include learned_today_summary if present.\n"
-        "- Email: subject engaging; body plain text, short paragraphs; include learned_today_summary prominently.\n"
-        "Output JSON only."
-    )
-    prompt = (
-        "User / cohort state (JSON):\n"
-        + json.dumps(state, ensure_ascii=False, indent=2)
-        + "\n\nReturn JSON:\n"
-        "{\n"
-        '  "whatsapp_message": string (<= 900 chars; can include line breaks),\n'
-        '  "email_subject": string,\n'
-        '  "email_body_text": string (plain; friendly paragraphs),\n'
-        '  "voice_script": string (short; suitable for phone TTS; avoid special symbols),\n'
-        '  "sparky_reasoning": string (brief: tone + why)\n'
-        "}\n"
-        "If a channel is not in channels_requested, still fill it with empty string."
-    )
-    return llm_generate_json(
-        groq_api_key=groq_api_key,
-        groq_model=groq_model,
-        google_api_key=google_api_key,
-        gemini_model=gemini_model,
-        system_instruction=system,
-        user_prompt=prompt,
+    task = Task(
+        description=(
+            "Compose engagement messages for all requested channels.\n\n"
+            "User / cohort state (JSON):\n"
+            + json.dumps(state, ensure_ascii=False, indent=2)
+            + "\n\nReturn JSON:\n"
+            "{\n"
+            '  "whatsapp_message": string (<= 900 chars; can include line breaks),\n'
+            '  "email_subject": string,\n'
+            '  "email_body_text": string (plain; friendly paragraphs),\n'
+            '  "voice_script": string (short; suitable for phone TTS; avoid special symbols),\n'
+            '  "sparky_reasoning": string (brief: tone + why)\n'
+            "}\n"
+            "If a channel is not in channels_requested, still fill it with empty string."
+        ),
+        expected_output='JSON with keys: whatsapp_message, email_subject, email_body_text, voice_script, sparky_reasoning',
+        agent=sparky_agent,
         temperature=0.85,
     )
+    crew = Crew(agents=[sparky_agent], tasks=[task])
+    return crew.kickoff(
+        llm_kw={
+            "groq_api_key": groq_api_key,
+            "groq_model": groq_model,
+            "google_api_key": google_api_key,
+            "gemini_model": gemini_model,
+        }
+    )
 
+
+# ---------------------------------------------------------------------------
+# Dispatch tools (same as before — channel delivery, not LLM)
+# ---------------------------------------------------------------------------
 
 def dispatch_twilio(
     *,

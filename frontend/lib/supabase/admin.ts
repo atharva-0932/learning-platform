@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 /**
- * Service-role client for server-only routes (e.g. Vapi webhooks) with no user session.
+ * Service-role client for server-only routes (webhooks, admin writes) with no user session.
  * Returns null if SUPABASE_SERVICE_ROLE_KEY is not set.
  */
 export function createServiceRoleClient(): SupabaseClient | null {

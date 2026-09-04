@@ -1,9 +1,40 @@
-"""Nova Agent: merge LinkedIn + resume extractions into a single profile."""
+"""Nova Agent: merge LinkedIn + resume extractions into a single profile — CrewAI framework."""
 
 from __future__ import annotations
 
 from typing import Any
 
+from crewai_compat import Agent
+
+# ---------------------------------------------------------------------------
+# Nova Agent definition
+# ---------------------------------------------------------------------------
+#
+# Nova is a deterministic profile-merging agent — no LLM is involved.
+# The Agent definition captures Nova's role and goal in the CrewAI way;
+# the merge logic runs as a pure Python tool (fast, reliable, no API cost).
+# ---------------------------------------------------------------------------
+
+nova_agent = Agent(
+    role="Nova — Profile Intelligence Agent",
+    goal=(
+        "Merge LinkedIn scrape data and resume parse data into a single, deduplicated learner profile "
+        "that Archie can use to design a personalized roadmap."
+    ),
+    backstory=(
+        "You are Nova, the onboarding intelligence layer of SkillCrew. "
+        "You receive raw data from two sources — a LinkedIn profile scrape and a resume parse — "
+        "and you produce a clean merged profile: deduplicated skills, unified experience, "
+        "inferred current role, and project keywords. "
+        "Your output is a structured JSON object consumed directly by Archie."
+    ),
+    verbose=True,
+)
+
+
+# ---------------------------------------------------------------------------
+# Nova's tools (deterministic Python — no LLM)
+# ---------------------------------------------------------------------------
 
 def _norm(s: str) -> str:
     return " ".join(s.strip().split()).casefold()
@@ -31,7 +62,7 @@ def merge_profiles(
     resume: dict[str, Any],
 ) -> dict[str, Any]:
     """
-    Merge LinkedIn scrape JSON + resume parse JSON with duplicate removal.
+    Nova's primary tool: merge LinkedIn scrape JSON + resume parse JSON with duplicate removal.
     """
     li_skills = linkedin.get("skills") or []
     li_exp = linkedin.get("experience") or []
@@ -58,7 +89,6 @@ def merge_profiles(
         if isinstance(alt, str) and alt.strip():
             current_role = alt.strip()
 
-    # Preserve source payloads for auditing; merged block is the canonical summary.
     return {
         "sources": {
             "linkedin": linkedin,

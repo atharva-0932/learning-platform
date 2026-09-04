@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
@@ -246,10 +245,6 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("SENDGRID_FROM_EMAIL"),
     )
-    vapi_api_key: str = Field(
-        default="",
-        validation_alias=AliasChoices("VAPI_API_KEY"),
-    )
     resend_api_key: str | None = Field(
         default=None,
         validation_alias=AliasChoices("RESEND_API_KEY"),
@@ -418,7 +413,6 @@ def health():
             and settings.twilio_account_sid.strip()
             and settings.twilio_auth_token.strip()
         ),
-        "vapi_configured": bool(settings.vapi_api_key and settings.vapi_api_key.strip()),
     }
 
 
@@ -519,74 +513,6 @@ async def youtube_playlist_context(
         "youtube_transcript_meta": meta,
         "source_urls": ctx.source_urls,
         "playlist_resolve_error": ctx.playlist_resolve_error,
-    }
-
-
-def _structured_nonempty(value: Any) -> bool:
-    if value is None:
-        return False
-    if isinstance(value, dict):
-        return len(value) > 0
-    if isinstance(value, list):
-        return len(value) > 0
-    return True
-
-
-class VapiStructuredFetchBody(BaseModel):
-    """Body for fetching `artifact.structuredOutputs` after a web call ends."""
-
-    call_id: str = Field(..., min_length=1, description="Vapi call id from the web SDK (`call-start-success`).")
-
-
-@app.post("/api/job-ready/mock-interview/vapi-structured")
-async def fetch_vapi_structured_outputs(body: VapiStructuredFetchBody):
-    """GET https://api.vapi.ai/call/{id} and return `artifact.structuredOutputs` (polls while Vapi finishes extraction)."""
-    key = (settings.vapi_api_key or "").strip()
-    if not key:
-        raise HTTPException(
-            status_code=503,
-            detail="VAPI_API_KEY is not set on the Python server. Add it to backend/.env and restart.",
-        )
-
-    url = f"https://api.vapi.ai/call/{body.call_id.strip()}"
-    headers = {"Authorization": f"Bearer {key}"}
-
-    last: dict[str, Any] | None = None
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        for _ in range(18):
-            try:
-                r = await client.get(url, headers=headers)
-            except httpx.RequestError as e:
-                raise HTTPException(status_code=502, detail=f"Vapi request failed: {e!s}") from e
-
-            if r.status_code == 404:
-                raise HTTPException(status_code=404, detail="Vapi call not found")
-            if not r.is_success:
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"Vapi error {r.status_code}: {r.text[:500]}",
-                )
-
-            try:
-                last = r.json()
-            except json.JSONDecodeError as e:
-                raise HTTPException(status_code=502, detail="Invalid JSON from Vapi") from e
-
-            artifact = (last or {}).get("artifact") or {}
-            structured = artifact.get("structuredOutputs")
-            if _structured_nonempty(structured):
-                return {
-                    "structuredOutputs": structured,
-                    "artifact": artifact,
-                }
-
-            await asyncio.sleep(2)
-
-    artifact = (last or {}).get("artifact") or {}
-    return {
-        "structuredOutputs": artifact.get("structuredOutputs"),
-        "artifact": artifact,
-        "pending": True,
     }
 
 

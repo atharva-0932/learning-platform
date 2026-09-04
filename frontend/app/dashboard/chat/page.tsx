@@ -15,6 +15,7 @@ import {
   Clock,
   AlertCircle,
 } from 'lucide-react'
+import Link from 'next/link'
 import { fetchConversations, createConversationInDB, saveChatMessage, deleteConversationFromDB, getCurrentUserId } from '@/lib/chat-utils'
 import { sendCoachMessageStream } from '@/lib/agents/orchestrator'
 import type { ChatMessage as ChatMessageType, ChatConversation } from '@/lib/types'
@@ -25,6 +26,7 @@ interface LocalChatMessage extends ChatMessageType {
   role: 'user' | 'assistant'
   content: string
   createdAt: Date
+  showDashboardCta?: boolean
 }
 
 export default function ChatPage() {
@@ -200,6 +202,7 @@ export default function ChatPage() {
       setCurrentConversation(afterUser)
 
       let assistantText: string
+      let needsDashboardCta = false
       try {
         const coach = await sendCoachMessageStream(input, currentConversation.id, (ev) => {
           if (ev.type === 'phase' && typeof ev.phase === 'string') {
@@ -210,10 +213,7 @@ export default function ChatPage() {
           typeof coach.assistant_message === 'string' && coach.assistant_message.trim()
             ? coach.assistant_message.trim()
             : 'I’m here with you. Tell me a bit more about what feels hardest right now, and we’ll adjust your plan together.'
-        if (coach.actions?.refresh_roadmap) {
-          assistantText +=
-            '\n\n— When you are ready, open the dashboard and use “Save & build roadmap” so Archie can regenerate your path with the new pacing.'
-        }
+        needsDashboardCta = !!coach.actions?.refresh_roadmap
       } catch (err) {
         console.error(err)
         setCoachPhase(null)
@@ -227,6 +227,7 @@ export default function ChatPage() {
         role: 'assistant',
         content: assistantText,
         createdAt: new Date(),
+        showDashboardCta: needsDashboardCta,
       }
 
       setMessages((prev) => [...prev, assistantMessage])
@@ -352,11 +353,14 @@ export default function ChatPage() {
             ) : (
               <div className="space-y-2 p-4">
                 {conversations.map((conversation) => (
-                  <button
+                  <div
                     key={conversation.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => handleSelectConversation(conversation)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSelectConversation(conversation)}
                     className={cn(
-                      'w-full p-3 rounded-lg border transition-all text-left hover:border-primary/50 group',
+                      'w-full p-3 rounded-lg border transition-all text-left hover:border-primary/50 group cursor-pointer',
                       currentConversation?.id === conversation.id
                         ? 'bg-primary/10 border-primary/30'
                         : 'border-border/50 hover:bg-muted/30'
@@ -384,7 +388,7 @@ export default function ChatPage() {
                         <Trash2 className="size-3 text-destructive" />
                       </button>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -442,6 +446,18 @@ export default function ChatPage() {
                     )}
                   >
                     <p className="text-sm leading-relaxed">{message.content}</p>
+                    {message.showDashboardCta && (
+                      <div className="mt-3 pt-3 border-t border-border/40">
+                        <p className="text-xs text-muted-foreground mb-2">
+                          When you&apos;re ready, rebuild your roadmap from the dashboard:
+                        </p>
+                        <Button asChild size="sm" className="gap-2">
+                          <Link href="/dashboard">
+                            Go to Dashboard → Build roadmap
+                          </Link>
+                        </Button>
+                      </div>
+                    )}
                     <p className={cn(
                       'text-xs mt-1 opacity-70',
                       message.role === 'user' && 'text-primary-foreground/70'

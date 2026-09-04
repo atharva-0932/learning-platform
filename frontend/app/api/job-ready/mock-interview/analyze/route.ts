@@ -1,14 +1,15 @@
 import { assertJobReadyApiAccess } from '@/lib/server/job-ready-api-guard'
-import { getBackendUrl } from '@/lib/backend-url'
 import { NextResponse } from 'next/server'
 
 export const maxDuration = 120
 
 type Body = {
   sessionId?: string
+  /** When true, ignore cached analysis_report and regenerate. */
+  force?: boolean
 }
 
-/** Omit empty `{}` / `[]` sentinels so the dialog only shows real Vapi data. */
+/** Omit empty `{}` / `[]` sentinels so the dialog only shows real metadata. */
 function pickStructuredForUi(raw: unknown): unknown | null {
   if (raw == null) return null
   if (typeof raw !== 'object') return raw
@@ -16,62 +17,57 @@ function pickStructuredForUi(raw: unknown): unknown | null {
   return Object.keys(raw as object).length > 0 ? raw : null
 }
 
-async function fetchVapiStructuredOutputs(callId: string): Promise<unknown | null> {
-  const backendUrl = getBackendUrl()
-  const res = await fetch(`${backendUrl}/api/job-ready/mock-interview/vapi-structured`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ call_id: callId }),
-  })
-  if (!res.ok) {
-    const t = await res.text()
-    console.warn('[mock-interview/analyze] Vapi structured fetch failed', res.status, t.slice(0, 300))
-    return null
-  }
-  const json = (await res.json()) as { structuredOutputs?: unknown }
-  return json.structuredOutputs ?? null
+function offlineChecklist(transcript: string, targetRole: string): string {
+  return [
+    '## Interview report (offline mode)',
+    '',
+    'Set a valid **GROQ_API_KEY** or **GOOGLE_API_KEY** for AI coaching. Until then, use this checklist:',
+    '',
+    '### Structure',
+    '- Did answers follow Situation → Task → Action → Result where appropriate?',
+    '- Were openings and closings clear?',
+    '',
+    '### Role fit (' + targetRole + ')',
+    '- Did you tie examples to responsibilities typical for this role?',
+    '',
+    '### Communication',
+    '- Pace, specificity, metrics — note one upgrade per area.',
+    '',
+    '_Transcript stored securely; length: ' + transcript.length + ' characters._',
+  ].join('\n')
 }
 
-async function buildDetailedReport(transcript: string, targetRole: string): Promise<string> {
-  const key = process.env.GROQ_API_KEY?.trim()
-  if (!key) {
-    return [
-      '## Interview report (offline mode)',
-      '',
-      'Set **GROQ_API_KEY** in your environment for AI-generated coaching. Until then, use this checklist:',
-      '',
-      '### Structure',
-      '- Did answers follow Situation → Task → Action → Result where appropriate?',
-      '- Were openings and closings clear?',
-      '',
-      '### Role fit (' + targetRole + ')',
-      '- Did you tie examples to responsibilities typical for this role?',
-      '',
-      '### Communication',
-      '- Pace, specificity, metrics — note one upgrade per area.',
-      '',
-      '_Transcript stored securely; length: ' + transcript.length + ' characters._',
-    ].join('\n')
-  }
-
-  const system = [
-    'You are an expert interview coach.',
-    'Produce a detailed, structured report for a mock interview candidate.',
+function coachSystemPrompt(targetRole: string): string {
+  return [
+    'You are an elite, ruthless interview coach and hiring-panel realist.',
+    'Produce a brutally honest, high-signal report for a mock interview candidate.',
     'Target role: ' + targetRole + '.',
     '',
-    'Use clear Markdown headings exactly as below (no preamble):',
-    '## Executive summary',
-    '## What went well',
-    '## Gaps and risks',
-    '## How to improve (prioritized)',
-    '## Practice plan (next 7 days)',
-    '## Role-specific tips (' + targetRole + ')',
+    'Tone rules (non-negotiable):',
+    '- Be extremely blunt. No fluff, no soft landing, no motivational filler.',
+    '- Call out weak answers, vague claims, missing metrics, rambling, and fake confidence by name.',
+    '- Assume the candidate wants to get hired — kindness without clarity wastes their time.',
+    '- Still be professional: no insults about identity/appearance; attack the performance only.',
+    '- Prefer concrete verdicts (“Would not advance”, “Borderline reject”) over vague praise.',
     '',
+    'Use clear Markdown headings exactly as below (no preamble):',
+    '## Brutal verdict',
+    '## What would get you rejected',
+    '## What barely worked (if anything)',
+    '## Gaps and risks',
+    '## How to improve (prioritized, no excuses)',
+    '## Practice plan (next 7 days) — hard mode',
+    '## Role-specific kill criteria (' + targetRole + ')',
+    '',
+    'Under "Brutal verdict": one paragraph with hire / no-hire / borderline, and why a real interviewer would decide that.',
+    'Under "What would get you rejected": bullet the concrete failure modes from THIS transcript.',
+    'Under "How to improve": numbered, actionable fixes; rewrite weak answers into stronger STAR versions where useful.',
     'Be specific: reference themes from the transcript without quoting long verbatim chunks.',
-    'Under "How to improve", give numbered, actionable steps.',
-    'Tone: supportive, direct, interview-ready.',
+    'If the performance was strong, say so briefly — then raise the bar and name what still is not elite.',
   ].join('\n')
+}
 
+async function reportWithGroq(transcript: string, targetRole: string, key: string): Promise<string> {
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -81,7 +77,7 @@ async function buildDetailedReport(transcript: string, targetRole: string): Prom
     body: JSON.stringify({
       model: 'llama-3.1-8b-instant',
       messages: [
-        { role: 'system', content: system },
+        { role: 'system', content: coachSystemPrompt(targetRole) },
         {
           role: 'user',
           content: 'Mock interview transcript:\n\n' + transcript.slice(0, 28000),
@@ -101,8 +97,63 @@ async function buildDetailedReport(transcript: string, targetRole: string): Prom
     choices?: { message?: { content?: string } }[]
   }
   const text = data.choices?.[0]?.message?.content
-  if (!text) throw new Error('Empty report from model')
+  if (!text) throw new Error('Empty report from Groq')
   return text
+}
+
+async function reportWithGemini(transcript: string, targetRole: string, key: string): Promise<string> {
+  const models = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash']
+  let lastErr = 'Gemini failed'
+  for (const model of models) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: coachSystemPrompt(targetRole) }] },
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: 'Mock interview transcript:\n\n' + transcript.slice(0, 28000) }],
+          },
+        ],
+        generationConfig: { temperature: 0.35, maxOutputTokens: 2500 },
+      }),
+    })
+    if (!res.ok) {
+      lastErr = `Gemini ${model} error ${res.status}: ${(await res.text()).slice(0, 200)}`
+      continue
+    }
+    const data = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[]
+    }
+    const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('')?.trim()
+    if (text) return text
+    lastErr = `Empty report from Gemini (${model})`
+  }
+  throw new Error(lastErr)
+}
+
+/** Groq first, then Gemini — so analysis still works if GROQ_API_KEY is expired. */
+async function buildDetailedReport(transcript: string, targetRole: string): Promise<string> {
+  const groqKey = process.env.GROQ_API_KEY?.trim()
+  const geminiKey =
+    process.env.GOOGLE_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim() || ''
+
+  if (!groqKey && !geminiKey) {
+    return offlineChecklist(transcript, targetRole)
+  }
+
+  if (groqKey) {
+    try {
+      return await reportWithGroq(transcript, targetRole, groqKey)
+    } catch (e) {
+      console.warn('[mock-interview/analyze] Groq failed, trying Gemini:', e)
+      if (!geminiKey) throw e
+    }
+  }
+
+  return reportWithGemini(transcript, targetRole, geminiKey)
 }
 
 type SessionRow = {
@@ -116,8 +167,7 @@ type SessionRow = {
 }
 
 /**
- * Loads transcript from DB (server-only), generates or returns cached report.
- * Fetches Vapi `artifact.structuredOutputs` via FastAPI when `vapi_call_id` is set.
+ * Loads transcript from DB (server-only), generates or returns cached Groq coaching report.
  * Response never includes the transcript.
  */
 export async function POST(req: Request) {
@@ -151,63 +201,9 @@ export async function POST(req: Request) {
   }
 
   const r = row as SessionRow
+  const force = body.force === true
 
-  const needsStructuredBackfill =
-    Boolean(r.analysis_report?.trim()) &&
-    Boolean(r.vapi_call_id?.trim()) &&
-    r.vapi_structured_output == null
-
-  if (needsStructuredBackfill && r.vapi_call_id) {
-    try {
-      const structured = await fetchVapiStructuredOutputs(r.vapi_call_id)
-      if (structured == null) {
-        const { error: upError } = await supabase
-          .from('mock_interview_sessions')
-          .update({
-            vapi_structured_output: {},
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', sessionId)
-          .eq('user_id', user.id)
-
-        if (upError) {
-          return NextResponse.json({ error: upError.message }, { status: 500 })
-        }
-
-        return NextResponse.json({
-          report: r.analysis_report ?? '',
-          structured: null,
-          cached: true,
-          targetRole: r.target_role,
-        })
-      }
-
-      const { error: upError } = await supabase
-        .from('mock_interview_sessions')
-        .update({
-          vapi_structured_output: structured as object,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', sessionId)
-        .eq('user_id', user.id)
-
-      if (upError) {
-        return NextResponse.json({ error: upError.message }, { status: 500 })
-      }
-
-      return NextResponse.json({
-        report: r.analysis_report ?? '',
-        structured: pickStructuredForUi(structured),
-        cached: false,
-        targetRole: r.target_role,
-      })
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Structured output fetch failed'
-      return NextResponse.json({ error: msg }, { status: 502 })
-    }
-  }
-
-  if (r.analysis_report?.trim()) {
+  if (!force && r.analysis_report?.trim()) {
     return NextResponse.json({
       report: r.analysis_report,
       structured: pickStructuredForUi(r.vapi_structured_output),
@@ -217,20 +213,13 @@ export async function POST(req: Request) {
   }
 
   try {
-    let structured: unknown | null = null
-    if (r.vapi_call_id?.trim()) {
-      structured = await fetchVapiStructuredOutputs(r.vapi_call_id.trim())
-    }
-
-    const groqReport = await buildDetailedReport(r.transcript, r.target_role)
-    const report = groqReport
+    const report = await buildDetailedReport(r.transcript, r.target_role)
 
     const { error: upError } = await supabase
       .from('mock_interview_sessions')
       .update({
         analysis_report: report,
-        vapi_structured_output:
-          structured != null ? (structured as object) : ({} as object),
+        vapi_structured_output: {} as object,
         updated_at: new Date().toISOString(),
       })
       .eq('id', sessionId)
@@ -242,7 +231,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       report,
-      structured: pickStructuredForUi(structured),
+      structured: null,
       cached: false,
       targetRole: r.target_role,
     })

@@ -220,7 +220,7 @@ function JobReadyContent() {
           step={2}
           icon={Mic}
           title="Mock interview"
-          subtitle="Live voice session via Vapi · get a full coaching report when you're done"
+          subtitle="Live voice session via ElevenLabs · get a full coaching report when you're done"
           color="violet"
         />
         <MockInterviewSection />

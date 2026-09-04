@@ -1,4 +1,4 @@
-"""Dexter: learning resources via Tavily (preferred) or Apify Google search."""
+"""Dexter: learning resources via Tavily (preferred) or Apify Google search — CrewAI framework."""
 
 from __future__ import annotations
 
@@ -8,12 +8,42 @@ from urllib.parse import urlparse
 
 from apify_client import ApifyClient
 
+from crewai_compat import Agent
 from tavily_client import tavily_search
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_GOOGLE_SEARCH_ACTOR = "apify/google-search-scraper"
 
+# ---------------------------------------------------------------------------
+# Dexter Agent definition
+# ---------------------------------------------------------------------------
+#
+# Dexter is a resource-fetching agent whose tools are Tavily and Apify.
+# Unlike LLM agents, Dexter executes its tasks deterministically through API
+# calls — no language model is involved. The Agent definition captures Dexter's
+# role and goal in the CrewAI way; tool execution happens in the functions below.
+# ---------------------------------------------------------------------------
+
+dexter_agent = Agent(
+    role="Dexter — Learning Resource Curator",
+    goal=(
+        "Discover the best tutorials, courses, articles, videos, and certification pages "
+        "for every module in a learner's roadmap using Tavily search or Apify Google scraper."
+    ),
+    backstory=(
+        "You are Dexter, a resource curator. Given a module title and learning objective, "
+        "you search the web and return the most relevant, high-quality resources bucketed by type: "
+        "youtube, courses, certifications, articles. "
+        "You prefer Tavily for speed and reliability; fall back to Apify Google Search when Tavily is unavailable."
+    ),
+    verbose=True,
+)
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
 
 def _host(url: str) -> str:
     try:
@@ -71,12 +101,17 @@ def _fill_buckets_from_urls(rows: list[dict[str, str]], max_per: int) -> dict[st
     return buckets
 
 
+# ---------------------------------------------------------------------------
+# Dexter's tools (called by the functions below)
+# ---------------------------------------------------------------------------
+
 def fetch_resources_tavily_modules(
     *,
     tavily_api_key: str,
     modules: list[dict[str, Any]],
     max_results_per_module: int = 8,
 ) -> dict[str, Any]:
+    """Dexter tool: fetch resources for multiple modules using Tavily search."""
     by_module: dict[str, Any] = {}
     for m in modules:
         mid = str(m.get("id") or "").strip()
@@ -90,7 +125,7 @@ def fetch_resources_tavily_modules(
         try:
             raw = tavily_search(api_key=tavily_api_key, query=query, max_results=max_results_per_module)
         except Exception as e:
-            logger.warning("Tavily failed for %s: %s", mid, str(e)[:400])
+            logger.warning("Dexter/Tavily failed for %s: %s", mid, str(e)[:400])
             by_module[mid] = {**_empty_buckets(), "error": str(e)[:500]}
             continue
         rows: list[dict[str, str]] = []
@@ -114,6 +149,7 @@ def fetch_resources_apify_modules(
     modules: list[dict[str, Any]],
     max_results_per_module: int = 8,
 ) -> dict[str, Any]:
+    """Dexter tool: fetch resources for multiple modules using Apify Google Search."""
     client = ApifyClient(apify_token)
     aid = (actor_id or DEFAULT_GOOGLE_SEARCH_ACTOR).strip() or DEFAULT_GOOGLE_SEARCH_ACTOR
     by_module: dict[str, Any] = {}
@@ -137,7 +173,7 @@ def fetch_resources_apify_modules(
         try:
             run = client.actor(aid).call(run_input=run_input, wait_secs=300)
         except Exception as e:
-            logger.warning("Apify actor run failed for module %s: %s", mid, str(e)[:400])
+            logger.warning("Dexter/Apify actor run failed for module %s: %s", mid, str(e)[:400])
             by_module[mid] = {**_empty_buckets(), "error": str(e)[:500]}
             continue
 
@@ -162,6 +198,10 @@ def fetch_resources_apify_modules(
     return {"byModuleId": by_module, "provider": "apify"}
 
 
+# ---------------------------------------------------------------------------
+# Orchestration entry-point (same signature as before)
+# ---------------------------------------------------------------------------
+
 def fetch_resources_auto(
     *,
     tavily_api_key: str | None,
@@ -170,6 +210,15 @@ def fetch_resources_auto(
     modules: list[dict[str, Any]],
     max_results_per_module: int = 8,
 ) -> dict[str, Any]:
+    """
+    Dexter's primary entry-point.  Selects the best available tool (Tavily > Apify)
+    and fetches resources for all modules.
+    """
+    logger.info(
+        "[Dexter] %s dispatching resource fetch for %d module(s)",
+        dexter_agent.role,
+        len(modules),
+    )
     if tavily_api_key and tavily_api_key.strip():
         return fetch_resources_tavily_modules(
             tavily_api_key=tavily_api_key.strip(),

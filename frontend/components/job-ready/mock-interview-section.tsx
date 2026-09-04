@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -17,8 +17,9 @@ import { Loader2, FileText } from 'lucide-react'
 import { useJobReadyTargetRole } from '@/components/job-ready/target-role-context'
 import { toast } from 'sonner'
 
-const VapiControls = dynamic(
-  () => import('./mock-interview-vapi-inner').then((m) => m.MockInterviewVapiInner),
+const ElevenLabsControls = dynamic(
+  () =>
+    import('./mock-interview-elevenlabs-inner').then((m) => m.MockInterviewElevenLabsInner),
   { ssr: false, loading: () => <p className="text-sm text-muted-foreground">Loading voice…</p> },
 )
 
@@ -31,10 +32,8 @@ export function MockInterviewSection() {
   const [analysisOpen, setAnalysisOpen] = useState(false)
   const [analysisLoading, setAnalysisLoading] = useState(false)
 
-  const publicKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY ?? ''
-  const assistantId = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID ?? ''
-  const voiceReady = Boolean(publicKey?.trim() && assistantId?.trim())
-
+  const agentId = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID ?? ''
+  const voiceReady = Boolean(agentId.trim())
 
   const handleCallStart = useCallback(() => {
     setSessionId(null)
@@ -68,7 +67,7 @@ export function MockInterviewSection() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ sessionId }),
+        body: JSON.stringify({ sessionId, force: true }),
       })
       const json = (await res.json()) as {
         report?: string
@@ -114,18 +113,18 @@ export function MockInterviewSection() {
         {!voiceReady ? (
           <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
             <p>
-              Add <code className="rounded bg-muted/80 px-1 text-xs text-foreground">VAPI_API_KEY</code> and{' '}
-              <code className="rounded bg-muted/80 px-1 text-xs text-foreground">VAPI_ASSISTANT_ID</code>, then restart
-              the dev server.
+              Add{' '}
+              <code className="rounded bg-muted/80 px-1 text-xs text-foreground">
+                NEXT_PUBLIC_ELEVENLABS_AGENT_ID
+              </code>{' '}
+              (or <code className="rounded bg-muted/80 px-1 text-xs text-foreground">ELEVENLABS_AGENT_ID</code>)
+              to your env, then restart the Next.js server.
             </p>
-            {!publicKey?.trim() && <p className="text-xs opacity-90">Missing: key.</p>}
-            {publicKey?.trim() && !assistantId?.trim() && <p className="text-xs opacity-90">Missing: assistant ID.</p>}
           </div>
         ) : (
-          <VapiControls
+          <ElevenLabsControls
             targetRole={targetRole}
-            publicKey={publicKey}
-            assistantId={assistantId}
+            agentId={agentId}
             onCallStart={handleCallStart}
             onInterviewSaved={handleInterviewSaved}
             onSaveFailed={handleSaveFailed}
@@ -136,7 +135,7 @@ export function MockInterviewSection() {
           <Button
             type="button"
             variant="secondary"
-            onClick={showAnalysis}
+            onClick={() => void showAnalysis()}
             disabled={!sessionId || analysisLoading || !targetRole}
           >
             {analysisLoading ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
@@ -169,7 +168,7 @@ export function MockInterviewSection() {
               {structured != null && (
                 <div className="rounded-lg border border-border bg-muted/40 p-3">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Structured output (Vapi)
+                    Structured metadata
                   </p>
                   <pre className="max-h-[min(40vh,320px)] overflow-auto text-xs leading-relaxed text-foreground">
                     {JSON.stringify(structured, null, 2)}

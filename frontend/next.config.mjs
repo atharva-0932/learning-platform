@@ -10,16 +10,9 @@ const { loadEnvConfig } = require('@next/env')
 loadEnvConfig(path.join(__dirname, '..'))
 loadEnvConfig(__dirname)
 
-/** Vapi Web SDK needs the key in the browser; accept `VAPI_API_KEY` / `VAPI_ASSISTANT_ID` as aliases. */
-const vapiPublicKey =
-  process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY ||
-  process.env.NEXT_PUBLIC_VAPI_API_KEY ||
-  process.env.VAPI_API_KEY ||
-  process.env.VAPI_PUBLIC_KEY ||
-  ''
-
-const vapiAssistantId =
-  process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID || process.env.VAPI_ASSISTANT_ID || ''
+/** ElevenLabs Agents — public agent id for the browser WebRTC client. */
+const elevenLabsAgentId =
+  process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID || process.env.ELEVENLABS_AGENT_ID || ''
 
 const frontendDir = __dirname
 const frontendNodeModules = path.join(frontendDir, 'node_modules')
@@ -52,8 +45,7 @@ const nextConfig = {
     unoptimized: true,
   },
   env: {
-    NEXT_PUBLIC_VAPI_PUBLIC_KEY: vapiPublicKey,
-    NEXT_PUBLIC_VAPI_ASSISTANT_ID: vapiAssistantId,
+    NEXT_PUBLIC_ELEVENLABS_AGENT_ID: elevenLabsAgentId,
   },
 }
 

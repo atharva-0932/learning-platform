@@ -6,12 +6,21 @@ export const maxDuration = 60
 type Body = {
   transcript?: string
   targetRole?: string
+  /** ElevenLabs agent id (preferred). */
+  elevenlabsAgentId?: string | null
+  /** ElevenLabs conversation id (preferred). */
+  elevenlabsConversationId?: string | null
+  /** Legacy Vapi field names — still accepted and stored in the same DB columns. */
   vapiAssistantId?: string | null
   vapiCallId?: string | null
 }
 
 /**
- * Persist transcript after a Vapi call. Does not return transcript text to the client.
+ * Persist transcript after an ElevenLabs (or legacy) voice call.
+ * Does not return transcript text to the client.
+ *
+ * DB columns remain `vapi_assistant_id` / `vapi_call_id` for compatibility;
+ * they now store ElevenLabs agent / conversation ids.
  */
 export async function POST(req: Request) {
   const access = await assertJobReadyApiAccess()
@@ -31,7 +40,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'transcript and targetRole are required' }, { status: 400 })
   }
 
-  const vapiCallId = (body.vapiCallId ?? '').trim() || null
+  const agentId =
+    (body.elevenlabsAgentId ?? '').trim() || (body.vapiAssistantId ?? '').trim() || null
+  const conversationId =
+    (body.elevenlabsConversationId ?? '').trim() || (body.vapiCallId ?? '').trim() || null
 
   const { data, error } = await supabase
     .from('mock_interview_sessions')
@@ -39,8 +51,8 @@ export async function POST(req: Request) {
       user_id: user.id,
       target_role: targetRole,
       transcript,
-      vapi_assistant_id: body.vapiAssistantId?.trim() || null,
-      vapi_call_id: vapiCallId,
+      vapi_assistant_id: agentId,
+      vapi_call_id: conversationId,
       updated_at: new Date().toISOString(),
     })
     .select('id')
@@ -48,7 +60,10 @@ export async function POST(req: Request) {
 
   if (error) {
     return NextResponse.json(
-      { error: error.message, hint: 'Ensure the mock_interview_sessions table exists (see supabase/migrations).' },
+      {
+        error: error.message,
+        hint: 'Ensure the mock_interview_sessions table exists (see supabase/migrations).',
+      },
       { status: 500 },
     )
   }
