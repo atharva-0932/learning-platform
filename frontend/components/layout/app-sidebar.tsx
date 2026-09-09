@@ -39,6 +39,7 @@ import {
   MessageSquare,
   Award,
   Workflow,
+  Users,
 } from 'lucide-react'
 
 const ORCHESTRATION_URL = 'https://react-node-flow-agentic-ai.vercel.app'
@@ -58,6 +59,11 @@ const navItems = [
     title: 'Agent Chat',
     href: '/dashboard/chat',
     icon: MessageSquare,
+  },
+  {
+    title: 'Study Rooms',
+    href: '/study-room',
+    icon: Users,
   },
   {
     title: 'Make me Job Ready',

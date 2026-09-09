@@ -246,6 +246,14 @@ python3 run_archie_roadmap_sqs_worker.py
 
 ---
 
+## Virtual Study Rooms (powered by Frame)
+
+SkillCrew embeds third-party [Frame](https://framevr.io) spaces in an iframe on `/study-room`. Room URLs live in `frontend/lib/config/studyRooms.ts` (placeholders until you create spaces in Frame and paste the real links). Content inside each room — whiteboards, pinned links, QR codes to quizzes — is curated manually per milestone; Frame has no public API, so SkillCrew cannot place objects or content programmatically.
+
+A screenshot-friendly QR helper is available at `/study-room/qr?url=…&label=…` for printing codes to pin inside Frame. Future work could include self-hosted Three.js or networked-aframe rooms; that is not part of the current embed integration.
+
+---
+
 ## License / team
 
 Built by **Team Antigravity** as SkillCrew. Align any public metrics (e.g. relevance lift) with what you can measure and defend.

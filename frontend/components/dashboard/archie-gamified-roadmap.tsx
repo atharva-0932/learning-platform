@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import type {
   ArchieContentSuggestion,
@@ -373,6 +374,19 @@ function SideCard({
               View report
             </Button>
           ) : null}
+          <Button
+            variant="outline"
+            size="sm"
+            className="relative z-10 w-full border-border/80 bg-muted/30 hover:bg-muted/50 sm:w-auto"
+            asChild
+          >
+            <Link
+              href="/study-room?room=milestone"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Study room →
+            </Link>
+          </Button>
         </div>
         {children}
       </CardContent>
