@@ -1,4 +1,4 @@
-"""Coach: interprets any user message + behavior as signals; suggests empathetic actions and roadmap prefs."""
+"""Coach: interprets any user message + behavior as signals — CrewAI Agent/Task/Crew."""
 
 from __future__ import annotations
 
@@ -6,9 +6,10 @@ import json
 from copy import deepcopy
 from typing import Any
 
-from llm_client import llm_generate_json
+from crewai_compat import Agent, Crew, Task
 from nova_agent import syllabus_for_prompt
 
+# Same system text as before (preserved for identical prompts).
 COACH_SYSTEM = """You are the SkillCrew learning coach. Every user message is DATA about their state.
 You respond with empathy for ANY domain (not only technology). You:
 - Detect concerns (overwhelm, time, fear of failing, confusion, motivation swings).
@@ -20,6 +21,32 @@ You respond with empathy for ANY domain (not only technology). You:
 - Never invent facts about their progress beyond what the payload says.
 
 Output strict JSON only."""
+
+coach_agent = Agent(
+    role="SkillCrew Learning Coach",
+    goal=(
+        "Interpret learner messages and behavior as signals; respond with empathy and propose "
+        "concrete preference or roadmap adjustments for any domain."
+    ),
+    backstory=COACH_SYSTEM,
+    # Exact prior system string — do not wrap with role/goal headers.
+    system_prompt=COACH_SYSTEM,
+    verbose=True,
+)
+
+
+def _llm_kw(
+    groq_api_key: str | None,
+    groq_model: str,
+    google_api_key: str | None,
+    gemini_model: str,
+) -> dict[str, Any]:
+    return {
+        "groq_api_key": groq_api_key,
+        "groq_model": groq_model,
+        "google_api_key": google_api_key,
+        "gemini_model": gemini_model,
+    }
 
 
 def coach_turn(
@@ -49,6 +76,7 @@ def coach_turn(
     if yt_trimmed:
         payload_for_llm["youtube_transcript_context"] = yt_trimmed
 
+    # Same user prompt text as the pre-CrewAI direct llm_generate_json path.
     prompt = (
         "Context JSON:\n"
         + json.dumps(payload_for_llm, ensure_ascii=False, indent=2)
@@ -68,12 +96,13 @@ def coach_turn(
         "If the user expresses they cannot keep up, refresh_roadmap should usually be true and "
         "update_preferences should lower pace or difficulty when appropriate."
     )
-    return llm_generate_json(
-        groq_api_key=groq_api_key,
-        groq_model=groq_model,
-        google_api_key=google_api_key,
-        gemini_model=gemini_model,
-        system_instruction=COACH_SYSTEM,
-        user_prompt=prompt,
+
+    task = Task(
+        description=prompt,
+        # Shape is already embedded in `prompt` (legacy coach path); keep user text identical.
+        expected_output="",
+        agent=coach_agent,
         temperature=0.55,
     )
+    crew = Crew(agents=[coach_agent], tasks=[task])
+    return crew.kickoff(llm_kw=_llm_kw(groq_api_key, groq_model, google_api_key, gemini_model))

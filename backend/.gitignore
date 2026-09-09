@@ -1,2 +1,4 @@
 .env
 .venv/
+.venv313/
+.crewai_storage/

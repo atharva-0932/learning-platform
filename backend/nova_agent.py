@@ -7,12 +7,13 @@ from typing import Any
 from crewai_compat import Agent
 
 # ---------------------------------------------------------------------------
-# Nova Agent definition
+# Nova Agent definition (real CrewAI Agent via crewai_compat bridge)
 # ---------------------------------------------------------------------------
 #
 # Nova is a deterministic profile-merging agent — no LLM is involved.
-# The Agent definition captures Nova's role and goal in the CrewAI way;
-# the merge logic runs as a pure Python tool (fast, reliable, no API cost).
+# The Agent definition uses real crewai.Agent for framework identity;
+# merge logic runs as pure Python (fast, reliable, no API cost). Call sites
+# in main.py invoke merge_profiles() directly — not Crew.kickoff.
 # ---------------------------------------------------------------------------
 
 nova_agent = Agent(

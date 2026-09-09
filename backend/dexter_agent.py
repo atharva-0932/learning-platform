@@ -16,13 +16,13 @@ logger = logging.getLogger(__name__)
 DEFAULT_GOOGLE_SEARCH_ACTOR = "apify/google-search-scraper"
 
 # ---------------------------------------------------------------------------
-# Dexter Agent definition
+# Dexter Agent definition (real CrewAI Agent via crewai_compat bridge)
 # ---------------------------------------------------------------------------
 #
 # Dexter is a resource-fetching agent whose tools are Tavily and Apify.
-# Unlike LLM agents, Dexter executes its tasks deterministically through API
-# calls — no language model is involved. The Agent definition captures Dexter's
-# role and goal in the CrewAI way; tool execution happens in the functions below.
+# Unlike LLM agents, Dexter executes deterministically through API calls —
+# no language model. The Agent definition uses real crewai.Agent for
+# framework identity; tool execution happens in the functions below.
 # ---------------------------------------------------------------------------
 
 dexter_agent = Agent(

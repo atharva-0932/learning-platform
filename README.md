@@ -23,7 +23,9 @@ Closed loop: **Nova → Archie → practice → Pip → Archie revise → Sparky
 
 ## Agents
 
-Product-orchestrated specialists (CrewAI-compatible Agent/Task/Crew shape over a unified JSON LLM client). Agents do **not** freely debate; Next.js authenticated routes call FastAPI `/internal/agents/*` with `X-Agent-Secret`.
+Product-orchestrated specialists built on the real **CrewAI** package (`crewai.Agent` / `crewai.Task` via [`backend/crewai_compat.py`](backend/crewai_compat.py)). SkillCrew’s `Crew.kickoff` still runs production inference through [`llm_client.py`](backend/llm_client.py) (**Groq → Gemini** JSON) so prompts, schemas, and fallbacks stay controlled — we do **not** use CrewAI’s default LLM loop. Agents do not freely debate; Next.js authenticated routes call FastAPI `/internal/agents/*` with `X-Agent-Secret`.
+
+**Python:** CrewAI requires **≥3.10 and &lt;3.14** (e.g. 3.12 or 3.13). Use a matching venv under `backend/` (e.g. `.venv313`).
 
 | Agent | Role | Notes |
 | :--- | :--- | :--- |
@@ -90,7 +92,7 @@ learning-platform/
 │   ├── main.py               # App entry (uvicorn on :8000)
 │   ├── agents_api.py         # /internal/agents/* (secret-protected)
 │   ├── *_agent.py            # Nova, Archie, Dexter, Pip, Sparky, Coach
-│   ├── crewai_compat.py      # Agent / Task / Crew over llm_client
+│   ├── crewai_compat.py      # Real crewai.Agent/Task + SkillCrew kickoff → llm_client
 │   ├── llm_client.py         # Groq JSON → Gemini fallback
 │   ├── roadmap_worker.py     # Archie generate + enrich
 │   └── run_archie_roadmap_sqs_worker.py
@@ -110,8 +112,8 @@ learning-platform/
 | :--- | :--- |
 | Frontend | Next.js 16, React 19, Tailwind CSS 4, Framer Motion, Zustand, Zod, Lucide |
 | Auth / DB | Supabase Auth, Postgres, RLS, optional **pgvector** (`agent_cache`) |
-| Backend | FastAPI, Uvicorn, Pydantic Settings, Supabase Python client |
-| LLMs | Groq (`llama-3.3-70b-versatile` default) → Gemini Flash family fallback |
+| Backend | FastAPI, Uvicorn, Pydantic Settings, Supabase Python client, **CrewAI** (Agent/Task defs) |
+| LLMs | Groq (`llama-3.3-70b-versatile` default) → Gemini Flash family fallback via `llm_client` |
 | Search / scrape | Tavily, Apify (LinkedIn + Google Search), Firecrawl fallback, pypdf |
 | Media | yt-dlp, youtube-transcript-api |
 | Messaging | Twilio (WhatsApp/SMS/voice), Resend / SendGrid |
@@ -186,16 +188,17 @@ Incremental migrations live under `supabase/migrations/`.
 
 ## Run locally
 
-Two terminals. Prefer **`python3`** and a working venv (this repo may include a broken `backend/venv` from another machine — use `backend/.venv` or recreate).
+Two terminals. Prefer **Python 3.12 or 3.13** for the backend (CrewAI requires `>=3.10,<3.14`). Avoid the broken `backend/venv` and Python 3.14 `.venv` if present — use e.g. `backend/.venv313`.
 
 ### 1. Backend (port 8000)
 
 ```bash
 cd backend
-python3 -m venv .venv          # if needed
-source .venv/bin/activate
+# Example with Python 3.13:
+/usr/local/bin/python3.13 -m venv .venv313
+source .venv313/bin/activate
 pip install -r requirements.txt
-python3 main.py
+python main.py
 # equivalent: uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
